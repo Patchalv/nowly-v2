@@ -10,6 +10,7 @@ import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useCreateWorkspace } from '@/hooks/useCreateWorkspace';
 import { useToggleTaskComplete } from '@/hooks/useToggleTaskComplete';
 import { createClient } from '@/lib/supabase/client';
+import { useWorkspaceStore } from '@/stores/workspace-store';
 import type { Task, Category } from '@/types/supabase';
 
 interface TaskWithRelations extends Task {
@@ -24,6 +25,7 @@ export default function TodayPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const hasCreatedWorkspace = useRef(false);
   const supabase = createClient();
+  const { selectedWorkspaceId } = useWorkspaceStore();
 
   // Get today's date in ISO format (YYYY-MM-DD)
   const todayDate = useMemo(() => {
@@ -76,14 +78,14 @@ export default function TodayPage() {
     createDefaultWorkspace();
   }, [workspacesLoading, defaultWorkspace, userId, createWorkspace]);
 
-  // Fetch tasks for today and overdue tasks
+  // Fetch tasks for today and overdue tasks (filtered by workspace)
   const {
     data: allTasks,
     isLoading: tasksLoading,
     isError,
     error,
     refetch,
-  } = useTodayTasks(todayDate);
+  } = useTodayTasks(todayDate, selectedWorkspaceId);
 
   // Filter tasks based on completion status:
   // - Uncompleted: show all (today + overdue)
@@ -159,14 +161,12 @@ export default function TodayPage() {
       </div>
 
       {/* Quick Add Task */}
-      {defaultWorkspace && (
-        <div className="mb-6">
-          <QuickAddTask
-            scheduledDate={todayDate}
-            workspaceId={defaultWorkspace.id}
-          />
-        </div>
-      )}
+      <div className="mb-6">
+        <QuickAddTask
+          scheduledDate={todayDate}
+          workspaceId={selectedWorkspaceId}
+        />
+      </div>
 
       {/* Tasks Section */}
       <div className="space-y-4">

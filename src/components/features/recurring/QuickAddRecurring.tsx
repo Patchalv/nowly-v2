@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import type { RecurringTask } from '@/schemas/recurring-task';
 
 interface QuickAddRecurringProps {
-  workspaceId: string;
+  workspaceId?: string | null;
   onOpenDialog?: (defaultValues: Partial<RecurringTask>) => void;
 }
 
@@ -22,10 +22,14 @@ export function QuickAddRecurring({
     if (!title.trim()) return;
 
     if (onOpenDialog) {
-      onOpenDialog({
+      const defaultValues: Partial<RecurringTask> = {
         title: title.trim(),
-        workspace_id: workspaceId,
-      });
+      };
+      // Only set workspace_id if a specific workspace is selected
+      if (workspaceId) {
+        defaultValues.workspace_id = workspaceId;
+      }
+      onOpenDialog(defaultValues);
       setTitle('');
       setIsExpanded(false);
     }

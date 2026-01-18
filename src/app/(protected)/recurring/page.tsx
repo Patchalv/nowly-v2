@@ -9,6 +9,7 @@ import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useCreateWorkspace } from '@/hooks/useCreateWorkspace';
 import { useCategories } from '@/hooks/useCategories';
 import { createClient } from '@/lib/supabase/client';
+import { useWorkspaceStore } from '@/stores/workspace-store';
 import {
   createRecurringTaskWithInstance,
   updateRecurringTaskAndInstances,
@@ -31,6 +32,7 @@ export default function RecurringPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const hasCreatedWorkspace = useRef(false);
   const supabase = createClient();
+  const { selectedWorkspaceId } = useWorkspaceStore();
 
   // Get current user
   useEffect(() => {
@@ -78,14 +80,14 @@ export default function RecurringPage() {
     createDefaultWorkspace();
   }, [workspacesLoading, defaultWorkspace, userId, createWorkspace]);
 
-  // Fetch recurring tasks
+  // Fetch recurring tasks (filtered by workspace)
   const {
     data: recurringTasks,
     isLoading: tasksLoading,
     isError,
     error,
     refetch,
-  } = useRecurringTasks();
+  } = useRecurringTasks(selectedWorkspaceId);
 
   // Fetch categories for the default workspace (only when workspace is loaded)
   const { data: categories } = useCategories(defaultWorkspace?.id || '');
@@ -161,14 +163,12 @@ export default function RecurringPage() {
       </div>
 
       {/* Quick Add */}
-      {defaultWorkspace && (
-        <div className="mb-6">
-          <QuickAddRecurring
-            workspaceId={defaultWorkspace.id}
-            onOpenDialog={handleOpenDialog}
-          />
-        </div>
-      )}
+      <div className="mb-6">
+        <QuickAddRecurring
+          workspaceId={selectedWorkspaceId}
+          onOpenDialog={handleOpenDialog}
+        />
+      </div>
 
       {/* Recurring List */}
       <div className="space-y-4">

@@ -20,6 +20,7 @@ import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useCreateWorkspace } from '@/hooks/useCreateWorkspace';
 import { useToggleTaskComplete } from '@/hooks/useToggleTaskComplete';
 import { createClient } from '@/lib/supabase/client';
+import { useWorkspaceStore } from '@/stores/workspace-store';
 import type { Task, Category } from '@/types/supabase';
 
 interface TaskWithRelations extends Task {
@@ -36,6 +37,7 @@ export default function DailyPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const hasCreatedWorkspace = useRef(false);
   const supabase = createClient();
+  const { selectedWorkspaceId } = useWorkspaceStore();
 
   // Get current user
   useEffect(() => {
@@ -93,14 +95,18 @@ export default function DailyPage() {
     };
   }, [weekStartDate]);
 
-  // Fetch tasks for the entire week
+  // Fetch tasks for the entire week (filtered by workspace)
   const {
     data: weekTasks,
     isLoading: tasksLoading,
     isError,
     error,
     refetch,
-  } = useTasksForDateRange(weekBoundaries.start, weekBoundaries.end);
+  } = useTasksForDateRange(
+    weekBoundaries.start,
+    weekBoundaries.end,
+    selectedWorkspaceId
+  );
 
   // Filter tasks for the selected day
   const selectedDateString = format(selectedDate, 'yyyy-MM-dd');
@@ -210,14 +216,12 @@ export default function DailyPage() {
       </div>
 
       {/* Quick Add Task */}
-      {defaultWorkspace && (
-        <div className="mb-6">
-          <QuickAddTask
-            scheduledDate={selectedDateString}
-            workspaceId={defaultWorkspace.id}
-          />
-        </div>
-      )}
+      <div className="mb-6">
+        <QuickAddTask
+          scheduledDate={selectedDateString}
+          workspaceId={selectedWorkspaceId}
+        />
+      </div>
 
       {/* Tasks Section */}
       <div className="space-y-4">

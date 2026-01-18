@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { CalendarIcon, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -30,9 +30,17 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useUpdateTask } from '@/hooks/useUpdateTask';
 import { useDeleteTask } from '@/hooks/useDeleteTask';
+import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { toast } from 'sonner';
 import type { Task, Category } from '@/types/supabase';
 
@@ -52,6 +60,7 @@ function TaskDialogContent({
 }: Omit<TaskDialogProps, 'open'>) {
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
+  const [workspaceId, setWorkspaceId] = useState(task?.workspace_id || '');
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(
     task?.scheduled_date ? new Date(task.scheduled_date) : undefined
   );
@@ -62,15 +71,17 @@ function TaskDialogContent({
 
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
+  const { data: workspaces } = useWorkspaces();
 
   const handleSave = async () => {
-    if (!task || !title.trim()) return;
+    if (!task || !title.trim() || !workspaceId) return;
 
     try {
       await updateTask.mutateAsync({
         id: task.id,
         title: title.trim(),
         description: description.trim() || null,
+        workspace_id: workspaceId,
         scheduled_date: scheduledDate
           ? scheduledDate.toISOString().split('T')[0]
           : null,
@@ -135,6 +146,26 @@ function TaskDialogContent({
               placeholder="Add details..."
               rows={4}
             />
+          </div>
+
+          {/* Workspace */}
+          <div className="space-y-2">
+            <Label htmlFor="workspace">Workspace</Label>
+            <Select value={workspaceId} onValueChange={setWorkspaceId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select workspace" />
+              </SelectTrigger>
+              <SelectContent>
+                {workspaces?.map((workspace) => (
+                  <SelectItem key={workspace.id} value={workspace.id}>
+                    <div className="flex items-center gap-2">
+                      <span>{workspace.icon || '📋'}</span>
+                      <span>{workspace.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Dates */}

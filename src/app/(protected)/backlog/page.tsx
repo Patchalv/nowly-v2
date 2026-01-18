@@ -9,6 +9,7 @@ import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useCreateWorkspace } from '@/hooks/useCreateWorkspace';
 import { useToggleTaskComplete } from '@/hooks/useToggleTaskComplete';
 import { createClient } from '@/lib/supabase/client';
+import { useWorkspaceStore } from '@/stores/workspace-store';
 import type { Task, Category } from '@/types/supabase';
 
 interface TaskWithRelations extends Task {
@@ -23,6 +24,7 @@ export default function BacklogPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const hasCreatedWorkspace = useRef(false);
   const supabase = createClient();
+  const { selectedWorkspaceId } = useWorkspaceStore();
 
   // Get current user
   useEffect(() => {
@@ -70,14 +72,14 @@ export default function BacklogPage() {
     createDefaultWorkspace();
   }, [workspacesLoading, defaultWorkspace, userId, createWorkspace]);
 
-  // Fetch backlog tasks (tasks with no scheduled date)
+  // Fetch backlog tasks (tasks with no scheduled date, filtered by workspace)
   const {
     data: allTasks,
     isLoading: tasksLoading,
     isError,
     error,
     refetch,
-  } = useInboxTasks();
+  } = useInboxTasks(selectedWorkspaceId);
 
   // Filter to show only uncompleted tasks
   const tasks = useMemo(() => {
@@ -146,11 +148,9 @@ export default function BacklogPage() {
       </div>
 
       {/* Quick Add Task */}
-      {defaultWorkspace && (
-        <div className="mb-6">
-          <QuickAddBacklog workspaceId={defaultWorkspace.id} />
-        </div>
-      )}
+      <div className="mb-6">
+        <QuickAddBacklog workspaceId={selectedWorkspaceId} />
+      </div>
 
       {/* Tasks Section */}
       <div className="space-y-4">

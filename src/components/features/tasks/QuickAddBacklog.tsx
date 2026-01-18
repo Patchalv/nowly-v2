@@ -4,20 +4,34 @@ import { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useCreateTask } from '@/hooks/useCreateTask';
+import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 
 interface QuickAddBacklogProps {
-  workspaceId: string;
+  workspaceId?: string | null; // Optional when Master is selected
 }
 
 export function QuickAddBacklog({ workspaceId }: QuickAddBacklogProps) {
   const [title, setTitle] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [selectedWorkspace, setSelectedWorkspace] = useState<string>(
+    workspaceId || ''
+  );
   const createTask = useCreateTask();
   const supabase = createClient();
+  const { data: workspaces } = useWorkspaces();
+
+  const needsWorkspaceSelector = !workspaceId;
 
   useEffect(() => {
     const getUser = async () => {
@@ -31,16 +45,30 @@ export function QuickAddBacklog({ workspaceId }: QuickAddBacklogProps) {
     getUser();
   }, [supabase]);
 
+  // Set default workspace when workspaces load
+  useEffect(() => {
+    if (needsWorkspaceSelector && workspaces && workspaces.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedWorkspace(workspaces[0].id);
+    }
+  }, [workspaces, needsWorkspaceSelector]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!title.trim() || !userId) return;
 
+    const targetWorkspace = workspaceId || selectedWorkspace;
+    if (!targetWorkspace) {
+      toast.error('Please select a workspace');
+      return;
+    }
+
     try {
       await createTask.mutateAsync([
         {
           title: title.trim(),
-          workspace_id: workspaceId,
+          workspace_id: targetWorkspace,
           user_id: userId,
           is_completed: false,
         },
@@ -72,23 +100,47 @@ export function QuickAddBacklog({ workspaceId }: QuickAddBacklogProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-background flex w-full items-center gap-2 rounded-lg border px-4 py-3"
+      className="bg-background flex w-full flex-col gap-3 rounded-lg border px-4 py-3"
     >
-      <Plus className="h-4 w-4 flex-shrink-0 text-blue-500" />
-      <Input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Add a task to the backlog..."
-        className="h-auto border-0 p-0 focus-visible:ring-0"
-        autoFocus
-        onBlur={() => {
-          if (!title.trim()) {
-            setIsExpanded(false);
-          }
-        }}
-      />
+      <div className="flex items-center gap-2">
+        <Plus className="h-4 w-4 flex-shrink-0 text-blue-500" />
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Add a task to the backlog..."
+          className="h-auto border-0 p-0 focus-visible:ring-0"
+          autoFocus
+          onBlur={() => {
+            if (!title.trim() && !needsWorkspaceSelector) {
+              setIsExpanded(false);
+            }
+          }}
+        />
+      </div>
+      {needsWorkspaceSelector && workspaces && workspaces.length > 0 && (
+        <Select value={selectedWorkspace} onValueChange={setSelectedWorkspace}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select workspace" />
+          </SelectTrigger>
+          <SelectContent>
+            {workspaces.map((workspace) => (
+              <SelectItem key={workspace.id} value={workspace.id}>
+                <div className="flex items-center gap-2">
+                  <span>{workspace.icon || '📋'}</span>
+                  <span>{workspace.name}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
       {title.trim() && (
-        <Button type="submit" size="sm" disabled={createTask.isPending}>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={createTask.isPending}
+          className="self-end"
+        >
           {createTask.isPending ? 'Adding...' : 'Add'}
         </Button>
       )}
