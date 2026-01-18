@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { CalendarCheck, ListTodo, Repeat, User } from 'lucide-react';
+import { Archive, CalendarCheck, ListTodo, Repeat, User } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -26,6 +26,11 @@ const navItems = [
     title: 'Daily tasks',
     url: '/daily',
     icon: ListTodo,
+  },
+  {
+    title: 'Backlog',
+    url: '/backlog',
+    icon: Archive,
   },
   {
     title: 'Recurring tasks',

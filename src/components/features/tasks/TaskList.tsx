@@ -19,6 +19,8 @@ interface TaskListProps {
   onToggleComplete: (task: TaskWithRelations) => void;
   onTaskClick: (task: TaskWithRelations) => void;
   onRetry?: () => void;
+  emptyStateMessage?: string;
+  emptyStateDescription?: string;
 }
 
 export function TaskList({
@@ -29,6 +31,8 @@ export function TaskList({
   onToggleComplete,
   onTaskClick,
   onRetry,
+  emptyStateMessage = 'No tasks scheduled',
+  emptyStateDescription = 'Add a task above to get started',
 }: TaskListProps) {
   const [showCompleted, setShowCompleted] = useState(true);
 
@@ -86,9 +90,9 @@ export function TaskList({
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="space-y-2">
-          <p className="text-lg font-medium">No tasks scheduled</p>
+          <p className="text-lg font-medium">{emptyStateMessage}</p>
           <p className="text-muted-foreground text-sm">
-            Add a task above to get started
+            {emptyStateDescription}
           </p>
         </div>
       </div>
