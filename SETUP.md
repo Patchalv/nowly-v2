@@ -41,6 +41,7 @@ your-project/
 ### 3. Verify Setup
 
 **For Claude Code:**
+
 ```bash
 cd your-project
 claude  # Start Claude Code
@@ -49,29 +50,32 @@ claude  # Start Claude Code
 ```
 
 **For Cursor:**
+
 1. Open project in Cursor
 2. Check Settings > Rules to verify rules loaded
 3. Ask: "Summarize the project rules"
 
 ## File Purposes
 
-| File | Purpose | When Loaded |
-|------|---------|-------------|
-| `AGENTS.md` | Universal agent instructions | Always (by convention) |
-| `CLAUDE.md` | Claude Code entry point | Always by Claude Code |
-| `.cursor/rules/index.mdc` | Global Cursor rules | Always in Cursor |
-| `.cursor/rules/*.mdc` | Context-specific rules | When matching globs |
-| `docs/*.md` | Detailed documentation | When agents need deep context |
+| File                      | Purpose                      | When Loaded                   |
+| ------------------------- | ---------------------------- | ----------------------------- |
+| `AGENTS.md`               | Universal agent instructions | Always (by convention)        |
+| `CLAUDE.md`               | Claude Code entry point      | Always by Claude Code         |
+| `.cursor/rules/index.mdc` | Global Cursor rules          | Always in Cursor              |
+| `.cursor/rules/*.mdc`     | Context-specific rules       | When matching globs           |
+| `docs/*.md`               | Detailed documentation       | When agents need deep context |
 
 ## How Rules Are Loaded
 
 ### Claude Code
+
 1. Reads `CLAUDE.md` from project root
 2. `CLAUDE.md` points to `AGENTS.md`
 3. Agent follows instructions in `AGENTS.md`
 4. References `docs/` files when needed
 
 ### Cursor
+
 1. Always applies `.cursor/rules/index.mdc`
 2. Auto-attaches rules matching current file's glob patterns
 3. Example: Editing `src/components/features/tasks/TaskCard.tsx`
@@ -80,7 +84,9 @@ claude  # Start Claude Code
    - Loads `tasks-feature.mdc` (matches `src/components/features/tasks/**/*`)
 
 ### Antigravity / Other Agents
+
 Most agents recognize `AGENTS.md` as a standard. If not:
+
 1. Create a tool-specific config that references `AGENTS.md`
 2. Or paste `AGENTS.md` content into the tool's rules/instructions
 
@@ -103,7 +109,6 @@ globs:
   - src/hooks/use*Calendar*.ts
 alwaysApply: false
 ---
-
 # Calendar Feature Rules
 
 ## Your rules here...
@@ -112,24 +117,27 @@ alwaysApply: false
 ### Updating AGENTS.md
 
 Keep it concise! If adding detailed information:
+
 1. Create a new file in `docs/`
 2. Reference it from `AGENTS.md`
 
 ```markdown
-| Area | File | When to read |
-|------|------|--------------|
+| Area           | File               | When to read                 |
+| -------------- | ------------------ | ---------------------------- |
 | Calendar views | `docs/CALENDAR.md` | Working on calendar features |
 ```
 
 ## Vercel Skill + Nowly Config Interaction
 
 The Vercel React Best Practices skill provides **general** React/Next.js performance guidance:
+
 - Eliminate async waterfalls
 - Reduce bundle size
 - Re-render optimization
 - Server-side performance
 
 The Nowly configuration provides **specific** project guidance:
+
 - Scheduled vs due date distinction
 - Recurring task architecture
 - Supabase patterns
@@ -140,16 +148,19 @@ The Nowly configuration provides **specific** project guidance:
 ## Troubleshooting
 
 ### Claude Code ignores CLAUDE.md
+
 - Ensure `CLAUDE.md` is in project root
 - Restart Claude Code session
 - Check file permissions
 
 ### Cursor rules not loading
+
 - Verify `.cursor/rules/` directory exists
 - Check glob patterns match your file paths
 - Rules only load when editing matching files
 
 ### Agent not following instructions
+
 - Instructions may be too verbose — simplify
 - Move detailed info to `docs/` files
 - Check for conflicting rules

@@ -13,17 +13,19 @@ import { createClient } from '@/lib/supabase/client';
 
 export function useTasks(scheduledDate: string) {
   const supabase = createClient();
-  
+
   return useQuery(
     supabase
       .from('tasks')
-      .select(`
+      .select(
+        `
         *,
         category:categories(id, name, color),
         subtasks:tasks!parent_task_id(id, title, is_completed)
-      `)
+      `
+      )
       .eq('scheduled_date', scheduledDate)
-      .is('parent_task_id', null)  // Only top-level tasks
+      .is('parent_task_id', null) // Only top-level tasks
       .order('position')
   );
 }
@@ -45,39 +47,37 @@ export function useToggleTaskComplete() {
     mutationFn: async (task: Task) => {
       const { error } = await supabase
         .from('tasks')
-        .update({ 
+        .update({
           is_completed: !task.is_completed,
           completed_at: !task.is_completed ? new Date().toISOString() : null,
         })
         .eq('id', task.id);
-      
+
       if (error) throw error;
     },
-    
+
     onMutate: async (task) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['tasks'] });
-      
+
       // Snapshot previous value
       const previousTasks = queryClient.getQueryData<Task[]>(['tasks']);
-      
+
       // Optimistically update
       queryClient.setQueryData<Task[]>(['tasks'], (old) =>
         old?.map((t) =>
-          t.id === task.id
-            ? { ...t, is_completed: !t.is_completed }
-            : t
+          t.id === task.id ? { ...t, is_completed: !t.is_completed } : t
         )
       );
-      
+
       return { previousTasks };
     },
-    
+
     onError: (err, task, context) => {
       // Rollback on error
       queryClient.setQueryData(['tasks'], context?.previousTasks);
     },
-    
+
     onSettled: () => {
       // Refetch after mutation
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -95,11 +95,11 @@ import { createClient } from '@/lib/supabase/client';
 
 export function useCreateTask() {
   const supabase = createClient();
-  
+
   return useInsertMutation(
     supabase.from('tasks'),
-    ['id'],  // Primary key for cache invalidation
-    null,    // No count needed
+    ['id'], // Primary key for cache invalidation
+    null, // No count needed
     {
       onSuccess: () => {
         // Additional side effects if needed
@@ -120,10 +120,10 @@ import { persist } from 'zustand/middleware';
 
 interface UIState {
   sidebarOpen: boolean;
-  sidebarCollapsed: boolean;  // Icons only mode
+  sidebarCollapsed: boolean; // Icons only mode
   currentView: 'today' | 'upcoming' | 'inbox';
-  selectedDate: string;  // ISO date string
-  
+  selectedDate: string; // ISO date string
+
   // Actions
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -138,7 +138,7 @@ export const useUIStore = create<UIState>()(
       sidebarCollapsed: false,
       currentView: 'today',
       selectedDate: new Date().toISOString().split('T')[0],
-      
+
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
       setView: (view) => set({ currentView: view }),
@@ -285,13 +285,15 @@ import { taskSchema } from '@/schemas/task';
 
 export async function createTask(formData: FormData) {
   const supabase = await createClient();
-  
+
   // Validate auth
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) {
     return { error: 'Unauthorized' };
   }
-  
+
   // Parse and validate input
   const rawData = {
     title: formData.get('title'),
@@ -299,28 +301,30 @@ export async function createTask(formData: FormData) {
     scheduled_date: formData.get('scheduled_date'),
     workspace_id: formData.get('workspace_id'),
   };
-  
-  const validated = taskSchema.pick({
-    title: true,
-    description: true,
-    scheduled_date: true,
-    workspace_id: true,
-  }).safeParse(rawData);
-  
+
+  const validated = taskSchema
+    .pick({
+      title: true,
+      description: true,
+      scheduled_date: true,
+      workspace_id: true,
+    })
+    .safeParse(rawData);
+
   if (!validated.success) {
     return { error: validated.error.flatten() };
   }
-  
+
   // Insert
   const { error } = await supabase.from('tasks').insert({
     ...validated.data,
     user_id: user.id,
   });
-  
+
   if (error) {
     return { error: error.message };
   }
-  
+
   revalidatePath('/dashboard');
   return { success: true };
 }
@@ -357,7 +361,7 @@ export function TaskCard({ task, onToggleComplete, className }: TaskCardProps) {
         onCheckedChange={() => onToggleComplete(task)}
         className="mt-0.5"
       />
-      
+
       <div className="flex-1 min-w-0">
         <p className={cn(
           'font-medium truncate',
@@ -365,16 +369,16 @@ export function TaskCard({ task, onToggleComplete, className }: TaskCardProps) {
         )}>
           {task.title}
         </p>
-        
+
         {task.description && (
           <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
             {task.description}
           </p>
         )}
-        
+
         <TaskCard.Meta task={task} />
       </div>
-      
+
       <TaskCard.Actions task={task} />
     </div>
   );

@@ -87,23 +87,23 @@ CREATE TABLE public.tasks (
   category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
   parent_task_id UUID REFERENCES public.tasks(id) ON DELETE CASCADE,
   recurring_task_id UUID REFERENCES public.recurring_tasks(id) ON DELETE SET NULL,
-  
+
   title TEXT NOT NULL,
   description TEXT,
-  
+
   -- Date fields (critical distinction!)
   scheduled_date DATE,          -- When to work on it
   due_date DATE,                -- Hard deadline
-  
+
   is_completed BOOLEAN DEFAULT FALSE,
   completed_at TIMESTAMPTZ,
-  
+
   priority INTEGER DEFAULT 0 CHECK (priority >= 0 AND priority <= 3),
   position INTEGER DEFAULT 0,
-  
+
   -- For recurring task instances
   is_detached BOOLEAN DEFAULT FALSE,  -- True if modified from template
-  
+
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -117,7 +117,7 @@ CREATE INDEX idx_tasks_parent ON public.tasks(parent_task_id);
 CREATE INDEX idx_tasks_recurring ON public.tasks(recurring_task_id);
 
 -- Partial index for incomplete tasks (common query pattern)
-CREATE INDEX idx_tasks_incomplete_scheduled 
+CREATE INDEX idx_tasks_incomplete_scheduled
   ON public.tasks(user_id, scheduled_date)
   WHERE is_completed = FALSE;
 ```
@@ -132,11 +132,11 @@ CREATE TABLE public.recurring_tasks (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   workspace_id UUID NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
   category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
-  
+
   title TEXT NOT NULL,
   description TEXT,
   priority INTEGER DEFAULT 0,
-  
+
   -- Recurrence configuration
   recurrence_type TEXT NOT NULL CHECK (recurrence_type IN (
     'interval_from_completion',  -- Every N days from when completed
@@ -144,20 +144,20 @@ CREATE TABLE public.recurring_tasks (
     'fixed_weekly',              -- Specific days of week
     'fixed_monthly'              -- Specific day of month
   )),
-  
+
   interval_days INTEGER,          -- For interval/daily types
   days_of_week INTEGER[],         -- [1,3,5] = Mon/Wed/Fri (1=Monday)
   day_of_month INTEGER,           -- 1-31 for monthly
-  
+
   start_date DATE NOT NULL,
   end_date DATE,                  -- NULL = no end
   next_due_date DATE NOT NULL,    -- When next instance should be created
-  
+
   is_active BOOLEAN DEFAULT TRUE,
   is_paused BOOLEAN DEFAULT FALSE,
-  
+
   occurrences_generated INTEGER DEFAULT 0,
-  
+
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -202,7 +202,7 @@ CREATE POLICY "Users can manage categories in own workspaces"
   TO authenticated
   USING (
     workspace_id IN (
-      SELECT id FROM public.workspaces 
+      SELECT id FROM public.workspaces
       WHERE user_id = (SELECT auth.uid())
     )
   );
@@ -254,7 +254,7 @@ BEGIN
   -- Only trigger when task is completed
   IF NEW.is_completed = TRUE AND OLD.is_completed = FALSE AND NEW.recurring_task_id IS NOT NULL THEN
     SELECT * INTO template FROM recurring_tasks WHERE id = NEW.recurring_task_id;
-    
+
     IF template.is_active AND NOT template.is_paused THEN
       -- Calculate next date based on recurrence type
       CASE template.recurrence_type
@@ -264,7 +264,7 @@ BEGIN
           next_date := template.next_due_date + template.interval_days;
         -- Add other recurrence type calculations
       END CASE;
-      
+
       -- Check if within end_date bounds
       IF template.end_date IS NULL OR next_date <= template.end_date THEN
         -- Create new task instance
@@ -275,15 +275,15 @@ BEGIN
           template.user_id, template.workspace_id, template.category_id, template.id,
           template.title, template.description, template.priority, next_date
         );
-        
+
         -- Update template's next_due_date
-        UPDATE recurring_tasks 
+        UPDATE recurring_tasks
         SET next_due_date = next_date, occurrences_generated = occurrences_generated + 1
         WHERE id = template.id;
       END IF;
     END IF;
   END IF;
-  
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -307,7 +307,7 @@ Then create a helper type file:
 // src/types/supabase.ts
 import type { Database } from './database';
 
-export type Tables<T extends keyof Database['public']['Tables']> = 
+export type Tables<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Row'];
 
 export type Task = Tables<'tasks'>;

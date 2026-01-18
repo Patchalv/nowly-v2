@@ -5,6 +5,7 @@
 ## Project Overview
 
 **Nowly v2** is a modern task management app built with:
+
 - Next.js 15 (App Router)
 - Supabase (PostgreSQL + Auth)
 - TypeScript (strict mode)
@@ -13,6 +14,7 @@
 - Zustand (client UI state)
 
 **Key architectural decisions:**
+
 - Scheduled date vs due date distinction (Amazing Marvin pattern)
 - Master template + generated instances for recurring tasks
 - Feature-based folder structure with direct imports (no barrel files)
@@ -44,15 +46,19 @@ src/
 ```bash
 npm run dev          # Start development server
 npm run build        # Production build
+npm run start        # Start production server (after build)
 npm run typecheck    # TypeScript check (run before commits)
 npm run lint         # ESLint
 npm run test         # Run tests
+npm run format       # Format code with Prettier
+npm run format:check # Check code formatting (CI/lint step)
 npm run db:types     # Generate Supabase types
 ```
 
 ## Critical Rules
 
 ### 1. Imports — No Barrel Files
+
 ```typescript
 // ✅ CORRECT: Direct imports
 import { TaskCard } from '@/components/features/tasks/TaskCard';
@@ -63,6 +69,7 @@ import { TaskCard } from '@/components/features/tasks';
 ```
 
 ### 2. Types — Zod as Source of Truth
+
 ```typescript
 // ✅ CORRECT: Derive types from Zod schemas
 // schemas/task.ts
@@ -81,21 +88,28 @@ interface Task { ... }
 ```
 
 ### 3. Auth — Always Use getUser(), Never getSession()
+
 ```typescript
 // ✅ CORRECT: Validates JWT with Supabase Auth server
-const { data: { user } } = await supabase.auth.getUser();
+const {
+  data: { user },
+} = await supabase.auth.getUser();
 if (!user) redirect('/login');
 
 // ❌ WRONG: Reads from cookies (can be spoofed)
-const { data: { session } } = await supabase.auth.getSession();
+const {
+  data: { session },
+} = await supabase.auth.getSession();
 ```
 
 ### 4. Dates — Scheduled vs Due Date
+
 - `scheduled_date`: When user plans to work on task (calendar icon)
 - `due_date`: Hard deadline (flag/warning icon, red when overdue)
 - Never use due dates for artificial deadlines
 
 ### 5. Recurring Tasks — Template + Instances
+
 - `recurring_tasks` table stores master templates with recurrence rules
 - `tasks` table stores generated instances with `recurring_task_id` reference
 - `is_detached` boolean allows individual instance modifications
@@ -105,15 +119,16 @@ const { data: { session } } = await supabase.auth.getSession();
 
 Read these files when working on specific areas:
 
-| Area | File | When to read |
-|------|------|--------------|
-| Database schema | `docs/DATABASE.md` | Creating/modifying tables, RLS policies, migrations |
-| Component patterns | `docs/PATTERNS.md` | Building UI components, state management |
-| Architecture decisions | `docs/ARCHITECTURE.md` | Understanding why decisions were made |
+| Area                   | File                   | When to read                                        |
+| ---------------------- | ---------------------- | --------------------------------------------------- |
+| Database schema        | `docs/DATABASE.md`     | Creating/modifying tables, RLS policies, migrations |
+| Component patterns     | `docs/PATTERNS.md`     | Building UI components, state management            |
+| Architecture decisions | `docs/ARCHITECTURE.md` | Understanding why decisions were made               |
 
 ## Good Examples to Copy
 
 When creating new components, reference these patterns:
+
 - Task card: `src/components/features/tasks/TaskCard.tsx`
 - Form with validation: `src/components/features/tasks/TaskForm.tsx`
 - Data fetching hook: `src/hooks/useTasks.ts`
@@ -145,4 +160,8 @@ When creating new components, reference these patterns:
 
 - Branch naming: `feature/task-card`, `fix/auth-redirect`, `refactor/hooks`
 - Commit messages: Conventional commits (`feat:`, `fix:`, `refactor:`, `docs:`)
-- Always run typecheck and lint before pushing
+- **Pre-commit hooks** (Husky + lint-staged) automatically run:
+  - Format staged files with Prettier
+  - Lint staged TypeScript files with ESLint (auto-fix)
+  - Type-check entire project
+- If pre-commit fails, fix issues and commit again
