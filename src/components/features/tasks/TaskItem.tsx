@@ -25,12 +25,14 @@ interface TaskItemProps {
   task: TaskWithRelations;
   onToggleComplete: (task: TaskWithRelations) => void;
   onTaskClick: (task: TaskWithRelations) => void;
+  hideReschedule?: boolean;
 }
 
 export function TaskItem({
   task,
   onToggleComplete,
   onTaskClick,
+  hideReschedule = false,
 }: TaskItemProps) {
   const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
   const updateTask = useUpdateTask();
@@ -143,32 +145,34 @@ export function TaskItem({
       </button>
 
       {/* Reschedule button with calendar popover */}
-      <Popover open={isRescheduleOpen} onOpenChange={setIsRescheduleOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 flex-shrink-0"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsRescheduleOpen(true);
-            }}
-          >
-            <CalendarIcon className="h-4 w-4" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="end">
-          <Calendar
-            mode="single"
-            selected={
-              task.scheduled_date ? new Date(task.scheduled_date) : undefined
-            }
-            onSelect={handleReschedule}
-            initialFocus
-            disabled={(date) => date < startOfToday()}
-          />
-        </PopoverContent>
-      </Popover>
+      {!hideReschedule && (
+        <Popover open={isRescheduleOpen} onOpenChange={setIsRescheduleOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 flex-shrink-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsRescheduleOpen(true);
+              }}
+            >
+              <CalendarIcon className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="single"
+              selected={
+                task.scheduled_date ? new Date(task.scheduled_date) : undefined
+              }
+              onSelect={handleReschedule}
+              initialFocus
+              disabled={(date) => date < startOfToday()}
+            />
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   );
 }

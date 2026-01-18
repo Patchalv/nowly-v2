@@ -1,7 +1,9 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { TaskItem } from './TaskItem';
 import type { Task, Category } from '@/types/supabase';
 
@@ -28,6 +30,18 @@ export function TaskList({
   onTaskClick,
   onRetry,
 }: TaskListProps) {
+  const [showCompleted, setShowCompleted] = useState(true);
+
+  // Separate completed and uncompleted tasks
+  const { uncompletedTasks, completedTasks } = useMemo(() => {
+    if (!tasks) return { uncompletedTasks: [], completedTasks: [] };
+
+    return {
+      uncompletedTasks: tasks.filter((task) => !task.is_completed),
+      completedTasks: tasks.filter((task) => task.is_completed),
+    };
+  }, [tasks]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -81,17 +95,68 @@ export function TaskList({
     );
   }
 
-  // Tasks list
+  // Tasks list with separated sections
   return (
-    <div className="space-y-2">
-      {tasks.map((task) => (
-        <TaskItem
-          key={task.id}
-          task={task}
-          onToggleComplete={onToggleComplete}
-          onTaskClick={onTaskClick}
-        />
-      ))}
+    <div className="space-y-6">
+      {/* Uncompleted tasks section */}
+      {uncompletedTasks.length > 0 && (
+        <div className="space-y-2">
+          {uncompletedTasks.map((task) => (
+            <TaskItem
+              key={task.id}
+              task={task}
+              onToggleComplete={onToggleComplete}
+              onTaskClick={onTaskClick}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Completed tasks section */}
+      {completedTasks.length > 0 && (
+        <div className="space-y-3">
+          {/* Completed section header */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-muted-foreground flex items-center gap-2 text-sm font-medium tracking-wide uppercase">
+              Completed
+              <span className="text-xs">({completedTasks.length})</span>
+            </h3>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-xs">
+                Show completed
+              </span>
+              <Switch
+                checked={showCompleted}
+                onCheckedChange={setShowCompleted}
+              />
+            </div>
+          </div>
+
+          {/* Completed tasks list */}
+          {showCompleted && (
+            <div className="space-y-2">
+              {completedTasks.map((task) => (
+                <TaskItem
+                  key={task.id}
+                  task={task}
+                  onToggleComplete={onToggleComplete}
+                  onTaskClick={onTaskClick}
+                  hideReschedule
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Empty state when all tasks are completed */}
+      {uncompletedTasks.length === 0 && completedTasks.length > 0 && (
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          <p className="text-muted-foreground text-sm">
+            All tasks completed! 🎉
+          </p>
+        </div>
+      )}
     </div>
   );
 }
