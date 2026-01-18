@@ -36,19 +36,19 @@ export function DaySelector({
   const today = startOfToday();
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center justify-center gap-0.5 sm:gap-2">
       {/* Previous week button */}
       <Button
         variant="ghost"
         size="icon"
         onClick={onPreviousWeek}
-        className="flex-shrink-0"
+        className="h-7 w-7 flex-shrink-0 sm:h-10 sm:w-10"
       >
         <ChevronLeft className="h-4 w-4" />
       </Button>
 
       {/* Days container */}
-      <div className="scrollbar-hide flex flex-1 gap-2 overflow-x-auto">
+      <div className="flex gap-0.5 sm:gap-2">
         {daysInWeek.map((day) => {
           const isSelected = isSameDay(day, selectedDate);
           const isToday = isSameDay(day, today);
@@ -58,20 +58,22 @@ export function DaySelector({
               key={day.toISOString()}
               onClick={() => onSelectDate(day)}
               className={cn(
-                'flex min-w-[80px] flex-col items-center justify-center rounded-lg px-4 py-3 transition-colors',
+                'flex min-w-[40px] flex-col items-center justify-center rounded-lg px-1.5 py-1.5 transition-colors sm:min-w-[80px] sm:px-4 sm:py-3',
                 'hover:bg-accent/50 border',
                 isSelected &&
                   'bg-primary text-primary-foreground hover:bg-primary/90',
                 isToday && !isSelected && 'border-primary'
               )}
             >
-              <span className="text-xs font-medium uppercase">
+              <span className="text-[10px] font-medium uppercase sm:text-xs">
                 {format(day, 'EEE')}
               </span>
-              <span className="mt-1 text-lg font-semibold">
+              <span className="mt-0.5 text-base font-semibold sm:mt-1 sm:text-lg">
                 {format(day, 'd')}
               </span>
-              <span className="mt-1 text-xs">{format(day, 'MMM')}</span>
+              <span className="mt-0.5 text-[10px] sm:mt-1 sm:text-xs">
+                {format(day, 'MMM')}
+              </span>
             </button>
           );
         })}
@@ -82,7 +84,7 @@ export function DaySelector({
         variant="ghost"
         size="icon"
         onClick={onNextWeek}
-        className="flex-shrink-0"
+        className="h-7 w-7 flex-shrink-0 sm:h-10 sm:w-10"
       >
         <ChevronRight className="h-4 w-4" />
       </Button>

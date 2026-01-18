@@ -185,7 +185,7 @@ export default function DailyPage() {
     } else if (isTomorrow(selectedDate)) {
       return 'Tomorrow';
     } else {
-      return format(selectedDate, 'EEEE, MMMM d');
+      return format(selectedDate, 'EEEE, d MMM');
     }
   }, [selectedDate]);
 
