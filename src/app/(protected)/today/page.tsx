@@ -97,12 +97,6 @@ export default function TodayPage() {
     setIsDialogOpen(true);
   };
 
-  const handleReschedule = (task: TaskWithRelations) => {
-    // Open task dialog for rescheduling
-    setSelectedTask(task);
-    setIsDialogOpen(true);
-  };
-
   const isLoading = workspacesLoading || tasksLoading;
 
   return (
@@ -134,7 +128,6 @@ export default function TodayPage() {
           error={error}
           onToggleComplete={handleToggleComplete}
           onTaskClick={handleTaskClick}
-          onReschedule={handleReschedule}
           onRetry={refetch}
         />
       </div>

@@ -16,7 +16,6 @@ interface TaskListProps {
   error?: Error | null;
   onToggleComplete: (task: TaskWithRelations) => void;
   onTaskClick: (task: TaskWithRelations) => void;
-  onReschedule?: (task: TaskWithRelations) => void;
   onRetry?: () => void;
 }
 
@@ -27,7 +26,6 @@ export function TaskList({
   error,
   onToggleComplete,
   onTaskClick,
-  onReschedule,
   onRetry,
 }: TaskListProps) {
   // Loading state
@@ -92,7 +90,6 @@ export function TaskList({
           task={task}
           onToggleComplete={onToggleComplete}
           onTaskClick={onTaskClick}
-          onReschedule={onReschedule}
         />
       ))}
     </div>
