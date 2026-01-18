@@ -18,10 +18,13 @@ CREATE TABLE public.profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Trigger to auto-create profile on signup
+-- Trigger to auto-create profile, default workspace, and categories on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  new_workspace_id UUID;
 BEGIN
+  -- Create profile
   INSERT INTO public.profiles (id, email, full_name, avatar_url)
   VALUES (
     NEW.id,
@@ -29,6 +32,25 @@ BEGIN
     NEW.raw_user_meta_data->>'full_name',
     NEW.raw_user_meta_data->>'avatar_url'
   );
+
+  -- Create default workspace
+  INSERT INTO public.workspaces (user_id, name, color, icon, position)
+  VALUES (
+    NEW.id,
+    'Default',
+    '#6366f1',
+    '📋',
+    0
+  )
+  RETURNING id INTO new_workspace_id;
+
+  -- Create default categories in the workspace
+  INSERT INTO public.categories (workspace_id, name, color, icon, position)
+  VALUES
+    (new_workspace_id, 'Personal', '#10b981', '👤', 0),
+    (new_workspace_id, 'Work', '#3b82f6', '💼', 1),
+    (new_workspace_id, 'Home', '#f59e0b', '🏠', 2);
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -41,6 +63,8 @@ CREATE TRIGGER on_auth_user_created
 ### workspaces
 
 User's workspace containers (e.g., "Personal", "Work").
+
+**Important:** Users must always have at least one workspace. This constraint should be enforced at the application level (UI/API), not the database level, to allow proper CASCADE deletion when removing users from auth.users.
 
 ```sql
 CREATE TABLE public.workspaces (
@@ -292,6 +316,34 @@ CREATE TRIGGER on_task_completed
   AFTER UPDATE ON public.tasks
   FOR EACH ROW EXECUTE FUNCTION generate_next_recurring_instance();
 ```
+
+## Application-Level Constraints
+
+### Workspace Deletion
+
+Users must always have at least one workspace. This constraint should be enforced in the application layer:
+
+**Frontend validation:**
+
+- Disable the delete button when `workspaceCount === 1`
+- Show tooltip: "Cannot delete last workspace"
+
+**Backend validation (Server Actions/API):**
+
+```typescript
+// Before deleting workspace
+const { count } = await supabase
+  .from('workspaces')
+  .select('*', { count: 'exact', head: true })
+  .eq('user_id', userId);
+
+if (count <= 1) {
+  throw new Error('Cannot delete last workspace');
+}
+```
+
+**Why not a database trigger?**
+Database triggers that prevent deletion of the last workspace will block CASCADE deletion when removing users from `auth.users`, making it impossible to delete users from the Supabase dashboard.
 
 ## Type Generation
 
