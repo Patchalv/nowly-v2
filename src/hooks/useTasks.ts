@@ -94,3 +94,30 @@ export function useWorkspaceTasks(workspaceId: string) {
       .order('created_at', { ascending: false })
   );
 }
+
+/**
+ * Fetch tasks for the Today view
+ * Returns tasks scheduled for today or in the past
+ * Client-side filtering applies completion logic:
+ * - Uncompleted: show all (today + overdue)
+ * - Completed: show only today's completed tasks
+ */
+export function useTodayTasks(todayDate: string) {
+  const supabase = createClient();
+
+  return useQuery(
+    supabase
+      .from('tasks')
+      .select(
+        `
+        *,
+        category:categories(id, name, color, icon),
+        subtasks:tasks!parent_task_id(id, title, is_completed, position)
+      `
+      )
+      .lte('scheduled_date', todayDate)
+      .is('parent_task_id', null)
+      .order('scheduled_date', { ascending: true })
+      .order('position', { ascending: true })
+  );
+}

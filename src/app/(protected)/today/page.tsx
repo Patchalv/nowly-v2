@@ -5,7 +5,7 @@ import { format, startOfToday } from 'date-fns';
 import { QuickAddTask } from '@/components/features/tasks/QuickAddTask';
 import { TaskList } from '@/components/features/tasks/TaskList';
 import { TaskDialog } from '@/components/features/tasks/TaskDialog';
-import { useTasks } from '@/hooks/useTasks';
+import { useTodayTasks } from '@/hooks/useTasks';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useCreateWorkspace } from '@/hooks/useCreateWorkspace';
 import { useToggleTaskComplete } from '@/hooks/useToggleTaskComplete';
@@ -76,14 +76,27 @@ export default function TodayPage() {
     createDefaultWorkspace();
   }, [workspacesLoading, defaultWorkspace, userId, createWorkspace]);
 
-  // Fetch tasks for today
+  // Fetch tasks for today and overdue tasks
   const {
-    data: tasks,
+    data: allTasks,
     isLoading: tasksLoading,
     isError,
     error,
     refetch,
-  } = useTasks(todayDate);
+  } = useTodayTasks(todayDate);
+
+  // Filter tasks based on completion status:
+  // - Uncompleted: show all (today + overdue)
+  // - Completed: show only today's completed tasks
+  const tasks = useMemo(() => {
+    if (!allTasks) return undefined;
+    return allTasks.filter((task) => {
+      // Show all uncompleted tasks (today + overdue)
+      if (!task.is_completed) return true;
+      // Only show completed tasks scheduled for today
+      return task.scheduled_date === todayDate;
+    });
+  }, [allTasks, todayDate]);
 
   // Local state for optimistic updates
   const [optimisticTasks, setOptimisticTasks] = useState<
