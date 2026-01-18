@@ -17,6 +17,9 @@ export async function middleware(request: NextRequest) {
   // Protected routes - require authentication
   const isDashboardRoute =
     pathname.startsWith('/today') ||
+    pathname.startsWith('/daily') ||
+    pathname.startsWith('/recurring') ||
+    pathname.startsWith('/account') ||
     pathname.startsWith('/upcoming') ||
     pathname.startsWith('/inbox') ||
     pathname.startsWith('/dashboard');
