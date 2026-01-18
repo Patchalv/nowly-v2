@@ -85,11 +85,47 @@ export default function TodayPage() {
     refetch,
   } = useTasks(todayDate);
 
+  // Local state for optimistic updates
+  const [optimisticTasks, setOptimisticTasks] = useState<
+    TaskWithRelations[] | undefined
+  >(undefined);
+
+  // Use optimistic tasks if available, otherwise use fetched tasks
+  const displayTasks = optimisticTasks ?? tasks;
+
   // Toggle task completion mutation
   const toggleComplete = useToggleTaskComplete();
 
   const handleToggleComplete = (task: TaskWithRelations) => {
-    toggleComplete.mutate(task);
+    // Immediately update UI optimistically
+    setOptimisticTasks((current) => {
+      const tasksToUpdate = current ?? tasks;
+      if (!tasksToUpdate) return current;
+
+      return tasksToUpdate.map((t) =>
+        t.id === task.id
+          ? {
+              ...t,
+              is_completed: !t.is_completed,
+              completed_at: !t.is_completed ? new Date().toISOString() : null,
+            }
+          : t
+      );
+    });
+
+    // Then trigger the actual mutation
+    toggleComplete.mutate(task, {
+      onSuccess: () => {
+        // Clear optimistic state and refetch to get real data
+        refetch().then(() => {
+          setOptimisticTasks(undefined);
+        });
+      },
+      onError: () => {
+        // Revert optimistic update on error
+        setOptimisticTasks(undefined);
+      },
+    });
   };
 
   const handleTaskClick = (task: TaskWithRelations) => {
@@ -122,7 +158,7 @@ export default function TodayPage() {
       {/* Tasks Section */}
       <div className="space-y-4">
         <TaskList
-          tasks={tasks ?? undefined}
+          tasks={displayTasks ?? undefined}
           isLoading={isLoading}
           isError={isError}
           error={error}
