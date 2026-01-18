@@ -87,7 +87,7 @@ export default function RecurringPage() {
     refetch,
   } = useRecurringTasks();
 
-  // Fetch categories for the default workspace
+  // Fetch categories for the default workspace (only when workspace is loaded)
   const { data: categories } = useCategories(defaultWorkspace?.id || '');
 
   const handleItemClick = (item: RecurringTaskWithRelations) => {
