@@ -11,6 +11,7 @@ const loginSchema = z.object({
 
 const signupSchema = z
   .object({
+    fullName: z.string().min(1, 'Full name is required').max(100),
     email: z.string().email('Invalid email address'),
     password: z.string().min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string(),
@@ -61,6 +62,7 @@ export async function signup(formData: FormData): Promise<ActionResponse> {
 
   // Parse and validate input
   const rawData = {
+    fullName: formData.get('fullName'),
     email: formData.get('email'),
     password: formData.get('password'),
     confirmPassword: formData.get('confirmPassword'),
@@ -72,7 +74,7 @@ export async function signup(formData: FormData): Promise<ActionResponse> {
     return { error: validated.error.flatten().fieldErrors };
   }
 
-  const { email, password } = validated.data;
+  const { fullName, email, password } = validated.data;
 
   // Attempt signup
   const { error } = await supabase.auth.signUp({
@@ -80,6 +82,9 @@ export async function signup(formData: FormData): Promise<ActionResponse> {
     password,
     options: {
       emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+      data: {
+        full_name: fullName,
+      },
     },
   });
 
