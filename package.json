@@ -10,7 +10,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:types": "npx supabase gen types typescript --project-id xranzhizzedugrakggkf > src/types/database.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",
