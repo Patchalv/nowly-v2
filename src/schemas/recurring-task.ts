@@ -8,6 +8,7 @@ export const recurrenceTypeSchema = z.enum([
   'fixed_daily',
   'fixed_weekly',
   'fixed_monthly',
+  'fixed_yearly',
 ]);
 
 /**
@@ -25,6 +26,7 @@ export const recurringTaskSchema = z.object({
   interval_days: z.number().int().min(1).nullable(),
   days_of_week: z.array(z.number().int().min(0).max(6)).nullable(),
   day_of_month: z.number().int().min(1).max(31).nullable(),
+  month_of_year: z.number().int().min(1).max(12).nullable(),
   start_date: z.string().date(),
   end_date: z.string().date().nullable(),
   next_due_date: z.string().date(),
@@ -49,9 +51,11 @@ export const createRecurringTaskSchema = z
     interval_days: z.number().int().min(1).optional(),
     days_of_week: z.array(z.number().int().min(0).max(6)).optional(),
     day_of_month: z.number().int().min(1).max(31).optional(),
+    month_of_year: z.number().int().min(1).max(12).optional(),
     start_date: z.string().date(),
     end_date: z.string().date().optional(),
     next_due_date: z.string().date(),
+    is_active: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
     // Validation: interval_from_completion and fixed_daily require interval_days
@@ -85,6 +89,24 @@ export const createRecurringTaskSchema = z
       });
     }
 
+    // Validation: fixed_yearly requires month_of_year and day_of_month
+    if (data.recurrence_type === 'fixed_yearly') {
+      if (!data.month_of_year) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'month_of_year is required for yearly recurrence',
+          path: ['month_of_year'],
+        });
+      }
+      if (!data.day_of_month) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'day_of_month is required for yearly recurrence',
+          path: ['day_of_month'],
+        });
+      }
+    }
+
     // Validation: end_date must be after start_date
     if (data.end_date && data.end_date <= data.start_date) {
       ctx.addIssue({
@@ -109,6 +131,7 @@ export const updateRecurringTaskSchema = z
     interval_days: z.number().int().min(1).optional(),
     days_of_week: z.array(z.number().int().min(0).max(6)).optional(),
     day_of_month: z.number().int().min(1).max(31).optional(),
+    month_of_year: z.number().int().min(1).max(12).optional(),
     start_date: z.string().date().optional(),
     end_date: z.string().date().optional(),
     next_due_date: z.string().date().optional(),
