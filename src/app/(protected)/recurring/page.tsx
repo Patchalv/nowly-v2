@@ -89,8 +89,10 @@ export default function RecurringPage() {
     refetch,
   } = useRecurringTasks(selectedWorkspaceId);
 
-  // Fetch categories for the default workspace (only when workspace is loaded)
-  const { data: categories } = useCategories(defaultWorkspace?.id || '');
+  // Fetch categories for the selected workspace (or default workspace if in Master view)
+  const workspaceForCategories =
+    selectedWorkspaceId || defaultWorkspace?.id || '';
+  const { data: categories } = useCategories(workspaceForCategories);
 
   const handleItemClick = (item: RecurringTaskWithRelations) => {
     setSelectedItem(item);
@@ -130,10 +132,11 @@ export default function RecurringPage() {
         throw new Error(result.error);
       }
     } else {
-      // Create new
+      // Create new - use selected workspace if available, otherwise default workspace
       const result = await createRecurringTaskWithInstance({
         ...data,
-        workspace_id: defaultWorkspace?.id || data.workspace_id,
+        workspace_id:
+          selectedWorkspaceId || defaultWorkspace?.id || data.workspace_id,
       });
       if (result.error) {
         throw new Error(result.error);

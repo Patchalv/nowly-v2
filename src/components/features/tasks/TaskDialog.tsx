@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CalendarIcon, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils';
 import { useUpdateTask } from '@/hooks/useUpdateTask';
 import { useDeleteTask } from '@/hooks/useDeleteTask';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { useCategories } from '@/hooks/useCategories';
 import { toast } from 'sonner';
 import type { Task, Category } from '@/types/supabase';
 
@@ -61,6 +62,9 @@ function TaskDialogContent({
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
   const [workspaceId, setWorkspaceId] = useState(task?.workspace_id || '');
+  const [categoryId, setCategoryId] = useState<string | null>(
+    task?.category_id || null
+  );
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(
     task?.scheduled_date ? new Date(task.scheduled_date) : undefined
   );
@@ -72,6 +76,20 @@ function TaskDialogContent({
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
   const { data: workspaces } = useWorkspaces();
+  const { data: categories } = useCategories(workspaceId);
+
+  // Synchronize category with available categories when workspace changes
+  // This is a valid use of setState in useEffect to sync with external data
+  useEffect(() => {
+    if (categoryId && categories) {
+      const categoryExists = categories.some((c) => c.id === categoryId);
+      if (!categoryExists) {
+        setCategoryId(null);
+      }
+    }
+    // Only run when categories data changes (after workspace change)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories]);
 
   const handleSave = async () => {
     if (!task || !title.trim() || !workspaceId) return;
@@ -82,6 +100,7 @@ function TaskDialogContent({
         title: title.trim(),
         description: description.trim() || null,
         workspace_id: workspaceId,
+        category_id: categoryId,
         scheduled_date: scheduledDate
           ? scheduledDate.toISOString().split('T')[0]
           : null,
@@ -166,6 +185,46 @@ function TaskDialogContent({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Category */}
+          <div className="space-y-2">
+            <Label htmlFor="category">Category</Label>
+            <Select
+              value={categoryId || 'none'}
+              onValueChange={(value) =>
+                setCategoryId(value === 'none' ? null : value)
+              }
+              disabled={!categories || categories.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  <span className="text-muted-foreground">No Category</span>
+                </SelectItem>
+                {categories?.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    <div className="flex items-center gap-2">
+                      {category.icon && <span>{category.icon}</span>}
+                      {category.color && (
+                        <div
+                          className="h-3 w-3 rounded-full"
+                          style={{ backgroundColor: category.color }}
+                        />
+                      )}
+                      <span>{category.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {categories && categories.length === 0 && (
+              <p className="text-muted-foreground text-xs">
+                No categories in this workspace
+              </p>
+            )}
           </div>
 
           {/* Dates */}
