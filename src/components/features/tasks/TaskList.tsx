@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { TaskItem } from './TaskItem';
 import type { Task, Category } from '@/types/supabase';
+import { useUIStore } from '@/stores/ui-store';
 
 interface TaskWithRelations extends Task {
   category?: Category | null;
@@ -34,7 +35,7 @@ export function TaskList({
   emptyStateMessage = 'No tasks scheduled',
   emptyStateDescription = 'Add a task above to get started',
 }: TaskListProps) {
-  const [showCompleted, setShowCompleted] = useState(true);
+  const { showCompletedTasks, setShowCompletedTasks } = useUIStore();
 
   // Separate completed and uncompleted tasks
   const { uncompletedTasks, completedTasks } = useMemo(() => {
@@ -130,14 +131,14 @@ export function TaskList({
                 Show completed
               </span>
               <Switch
-                checked={showCompleted}
-                onCheckedChange={setShowCompleted}
+                checked={showCompletedTasks}
+                onCheckedChange={setShowCompletedTasks}
               />
             </div>
           </div>
 
           {/* Completed tasks list */}
-          {showCompleted && (
+          {showCompletedTasks && (
             <div className="space-y-2">
               {completedTasks.map((task) => (
                 <TaskItem
