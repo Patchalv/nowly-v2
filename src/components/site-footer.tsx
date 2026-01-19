@@ -1,13 +1,17 @@
-import { RepeatIcon } from 'lucide-react';
+import Image from 'next/image';
 
 export function SiteFooter() {
   return (
     <footer className="bg-muted/50 border-t px-6 py-12">
       <div className="mx-auto flex max-w-lg flex-col gap-8 text-center">
         <div className="flex items-center justify-center gap-2">
-          <div className="bg-primary text-primary-foreground flex items-center justify-center rounded-md p-1">
-            <RepeatIcon className="h-4 w-4" />
-          </div>
+          <Image
+            src="/logo/nowly-icon-bg.png"
+            alt="Nowly"
+            width={28}
+            height={28}
+            className="rounded-full"
+          />
           <span className="text-lg font-bold tracking-tight">nowly</span>
         </div>
         <nav className="text-muted-foreground flex justify-center gap-6 text-sm font-medium">

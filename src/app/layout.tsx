@@ -18,9 +18,48 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Nowly - Manage When You Do',
-  description:
-    'Stop drowning in deadlines. Nowly helps you schedule focus time for tasks based on your energy and availability, not just calendar dates.',
+  title: {
+    default: 'Nowly - Manage When You Do',
+    template: '%s | Nowly',
+  },
+  description: "Manage when you do, not just when it's due.",
+  metadataBase: new URL('https://nowly-v2.vercel.app'),
+  manifest: '/manifest.json',
+
+  // Open Graph for social sharing (Slack, Discord, iMessage, etc.)
+  openGraph: {
+    title: 'Nowly - Manage When You Do',
+    description: "Manage when you do, not just when it's due.",
+    url: 'https://nowly-v2.vercel.app',
+    siteName: 'Nowly',
+    images: [
+      {
+        url: '/og-image.jpg', // You'll create this (1200x630px)
+        width: 1200,
+        height: 630,
+        alt: "Nowly - Manage when you do, not just when it's due",
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+
+  // Twitter/X specific cards
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Nowly - Manage When You Do',
+    description: "Manage when you do, not just when it's due.",
+    images: ['/og-image.jpg'],
+  },
+
+  // App icons for browser tabs, bookmarks, etc.
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
+
+  // Theme color for browser UI (mobile Safari, Chrome, etc.)
+  themeColor: '#000000',
 };
 
 export default function RootLayout({

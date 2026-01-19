@@ -1,0 +1,25 @@
+{
+  "name": "Nowly - Manage When You Do",
+  "short_name": "Nowly",
+  "description": "Stop drowning in deadlines. Nowly helps you schedule focus time for tasks based on your energy and availability, not just calendar dates.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

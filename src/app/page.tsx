@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -32,6 +33,16 @@ export default function Page() {
         {/* Hero Section */}
         <section className="mx-auto flex max-w-lg flex-col items-center space-y-8 text-center">
           <div className="space-y-4">
+            <div className="mx-auto mb-6 flex justify-center">
+              <Image
+                src="/logo/nowly-icon-bg.png"
+                alt="Nowly Logo"
+                width={120}
+                height={120}
+                priority
+                className="rounded-full"
+              />
+            </div>
             <Badge
               variant="outline"
               className="text-muted-foreground border-border text-xs font-semibold tracking-wide uppercase"

@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { useTheme } from 'next-themes';
-import { RepeatIcon, Moon, Sun } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 
 export function SiteHeader() {
   const { theme, setTheme } = useTheme();
@@ -12,9 +13,13 @@ export function SiteHeader() {
     <header className="bg-background/80 sticky top-0 z-50 w-full border-b backdrop-blur-md">
       <div className="flex h-16 items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-2">
-          <div className="bg-primary text-primary-foreground flex items-center justify-center rounded-lg p-1.5">
-            <RepeatIcon className="h-5 w-5" />
-          </div>
+          <Image
+            src="/logo/nowly-icon-bg.png"
+            alt="Nowly"
+            width={32}
+            height={32}
+            className="rounded-full"
+          />
           <span className="text-xl font-bold tracking-tight">nowly</span>
         </Link>
         <div className="flex items-center gap-4">
