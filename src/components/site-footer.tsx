@@ -18,10 +18,13 @@ export function SiteFooter() {
           <a className="hover:text-foreground transition-colors" href="#">
             Features
           </a>
-          <a className="hover:text-foreground transition-colors" href="#">
+          <a
+            className="hover:text-foreground transition-colors"
+            href="/privacy"
+          >
             Privacy
           </a>
-          <a className="hover:text-foreground transition-colors" href="#">
+          <a className="hover:text-foreground transition-colors" href="/terms">
             Terms
           </a>
           <a className="hover:text-foreground transition-colors" href="#">
