@@ -60,6 +60,9 @@ export const metadata: Metadata = {
 
   // Theme color for browser UI (mobile Safari, Chrome, etc.)
   themeColor: '#000000',
+  verification: {
+    google: 'EtaQsAPiJREYVc_JvC4M3jhaCXP1z2TJT_kozTZWah8',
+  },
 };
 
 export default function RootLayout({
