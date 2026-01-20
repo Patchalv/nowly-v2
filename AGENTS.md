@@ -115,6 +115,130 @@ const {
 - `is_detached` boolean allows individual instance modifications
 - Generate instances on-demand or via daily cron, never infinite future tasks
 
+### 6. Error Handling — Sentry Integration
+
+**When to use error handlers:**
+
+```typescript
+// ✅ CORRECT: Use handleSupabaseError for database operations
+import { handleSupabaseError } from '@/lib/errors/supabase-error-handler';
+
+const { data, error } = await supabase.from('tasks').select('*');
+if (error) {
+  handleSupabaseError(error, {
+    table: 'tasks',
+    operation: 'select',
+    userId: user.id,
+    source: 'useTasks',
+  });
+  throw error; // Re-throw for UI error handling
+}
+
+// ✅ CORRECT: Use handleAuthError for authentication
+import {
+  handleAuthError,
+  getAuthErrorMessage,
+} from '@/lib/errors/auth-error-handler';
+
+const { error } = await supabase.auth.signInWithPassword({ email, password });
+if (error) {
+  handleAuthError(error, {
+    operation: 'signIn',
+    provider: 'email',
+    source: 'LoginForm',
+  });
+  toast.error(getAuthErrorMessage(error)); // User-friendly message
+  return;
+}
+
+// ❌ WRONG: Don't use console.error or ignore errors
+const { data, error } = await supabase.from('tasks').insert(task);
+if (error) console.error(error); // Won't be tracked in production
+```
+
+**Add breadcrumbs for user actions:**
+
+```typescript
+import * as Sentry from '@sentry/nextjs';
+
+// ✅ CORRECT: Add breadcrumbs before critical operations
+async function createTask(taskData: TaskInput) {
+  Sentry.addBreadcrumb({
+    category: 'task',
+    message: 'Creating new task',
+    level: 'info',
+    data: {
+      workspace_id: taskData.workspace_id,
+      category_id: taskData.category_id,
+      // Don't include PII like task title
+    },
+  });
+
+  const { data, error } = await supabase.from('tasks').insert(taskData);
+  // ... error handling
+}
+
+// ✅ CORRECT: Track user interactions
+function handleWorkspaceSwitch(workspaceId: string) {
+  Sentry.addBreadcrumb({
+    category: 'navigation',
+    message: 'Switched workspace',
+    level: 'info',
+    data: { workspace_id: workspaceId },
+  });
+}
+```
+
+**Monitor critical operations with transactions:**
+
+```typescript
+import * as Sentry from '@sentry/nextjs';
+
+// ✅ CORRECT: Use transactions for complex operations
+async function completeRecurringTask(taskId: string) {
+  return await Sentry.startSpan(
+    {
+      op: 'task.complete_recurring',
+      name: 'Complete Recurring Task',
+      attributes: { task_id: taskId },
+    },
+    async () => {
+      // Mark current instance complete
+      const { error: completeError } = await supabase
+        .from('tasks')
+        .update({ is_completed: true })
+        .eq('id', taskId);
+
+      if (completeError) {
+        handleSupabaseError(completeError, {
+          table: 'tasks',
+          operation: 'update',
+          source: 'completeRecurringTask',
+        });
+        throw completeError;
+      }
+
+      // Generate next instance
+      const { error: generateError } = await generateNextInstance(taskId);
+      if (generateError) throw generateError;
+
+      return { success: true };
+    }
+  );
+}
+```
+
+**Key principles:**
+
+- **Always** call error handlers (don't just log)
+- **Always** provide context (table, operation, source)
+- **Never** include sensitive data in breadcrumbs (passwords, tokens, full task content)
+- Use breadcrumbs for user actions that might help debug errors
+- Use transactions for multi-step operations to measure performance
+- Error handlers only send to Sentry in production (safe to use everywhere)
+
+See [`src/lib/errors/README.md`](src/lib/errors/README.md) for detailed examples.
+
 ## Detailed Documentation
 
 Read these files when working on specific areas:
