@@ -113,7 +113,7 @@ export function QuickAddTask({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Add a task to Today..."
-          className="h-auto border-0 p-0 focus-visible:ring-0"
+          className="h-auto flex-1 border-0 p-0 focus-visible:ring-0"
           autoFocus
           onBlur={() => {
             if (!title.trim() && !needsWorkspaceSelector) {
@@ -121,6 +121,16 @@ export function QuickAddTask({
             }
           }}
         />
+        {title.trim() && (
+          <Button
+            type="submit"
+            size="sm"
+            disabled={createTask.isPending}
+            className="flex-shrink-0"
+          >
+            {createTask.isPending ? 'Adding...' : 'Add'}
+          </Button>
+        )}
       </div>
       {needsWorkspaceSelector && workspaces && workspaces.length > 0 && (
         <Select value={selectedWorkspace} onValueChange={setSelectedWorkspace}>
@@ -138,16 +148,6 @@ export function QuickAddTask({
             ))}
           </SelectContent>
         </Select>
-      )}
-      {title.trim() && (
-        <Button
-          type="submit"
-          size="sm"
-          disabled={createTask.isPending}
-          className="self-end"
-        >
-          {createTask.isPending ? 'Adding...' : 'Add'}
-        </Button>
       )}
     </form>
   );
