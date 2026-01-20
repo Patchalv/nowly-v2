@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse, type NextRequest } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -15,6 +16,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(
         `${origin}/login?error=${encodeURIComponent(error.message)}`
       );
+    }
+
+    // Set Sentry user context after successful authentication (production only)
+    const isProduction = process.env.NODE_ENV === 'production';
+    const hasSentryDsn = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
+
+    if (isProduction && hasSentryDsn) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        Sentry.setUser({
+          id: user.id,
+          email: user.email,
+        });
+      }
     }
 
     // Successful authentication - redirect to /today

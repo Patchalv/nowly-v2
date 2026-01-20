@@ -6,6 +6,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { SentryUserContext } from '@/components/sentry-user-context';
 
 interface ProtectedLayoutProps {
   children: ReactNode;
@@ -23,6 +24,8 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
           <main className="flex flex-1 flex-col p-4">{children}</main>
         </SidebarInset>
       </SidebarProvider>
+      {/* Set Sentry user context for error tracking in production */}
+      <SentryUserContext />
     </TooltipProvider>
   );
 }

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
+import * as Sentry from '@sentry/nextjs';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -51,6 +52,23 @@ export async function login(formData: FormData): Promise<ActionResponse> {
 
   if (error) {
     return { error: { general: error.message } };
+  }
+
+  // Set Sentry user context after successful login (production only)
+  const isProduction = process.env.NODE_ENV === 'production';
+  const hasSentryDsn = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
+
+  if (isProduction && hasSentryDsn) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      Sentry.setUser({
+        id: user.id,
+        email: user.email,
+      });
+    }
   }
 
   // Successful login - redirect to /today
@@ -127,6 +145,14 @@ export async function signOut(): Promise<{ error: string } | undefined> {
 
   if (error) {
     return { error: error.message };
+  }
+
+  // Clear Sentry user context on logout (production only)
+  const isProduction = process.env.NODE_ENV === 'production';
+  const hasSentryDsn = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
+
+  if (isProduction && hasSentryDsn) {
+    Sentry.setUser(null);
   }
 
   // Successful logout - redirect to /login
