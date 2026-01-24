@@ -29,7 +29,7 @@ import { createClient } from '@/lib/supabase/client';
 import { signOut } from '@/app/(auth)/actions';
 import { toast } from 'sonner';
 import type { Workspace, Category } from '@/types/supabase';
-import { ReplayTourButton } from '@/components/features/onboarding';
+import { ReplayTourButton } from '@/components/features/onboarding/ReplayTourButton';
 
 /**
  * Check if running on localhost (development environment).

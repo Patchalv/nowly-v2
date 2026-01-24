@@ -35,7 +35,7 @@ export function useToggleTaskComplete() {
       // Show enhanced toast on first task completion
       if (newIsCompleted && !hasSeenTooltip(TooltipType.TASK_COMPLETION_UNDO)) {
         toast.success('Task completed!', {
-          description: 'Tip: Press Ctrl+Z to undo (or click undo button)',
+          description: 'Tip: Press Ctrl+Z (Cmd+Z on Mac) to undo',
           duration: 5000,
         });
 

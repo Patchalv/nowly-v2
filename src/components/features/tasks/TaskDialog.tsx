@@ -44,7 +44,7 @@ import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useCategories } from '@/hooks/useCategories';
 import { toast } from 'sonner';
 import type { Task, Category } from '@/types/supabase';
-import { ContextualTooltip } from '@/components/features/onboarding';
+import { ContextualTooltip } from '@/components/features/onboarding/ContextualTooltip';
 import { TooltipType } from '@/hooks/useOnboarding';
 
 interface TaskWithRelations extends Task {

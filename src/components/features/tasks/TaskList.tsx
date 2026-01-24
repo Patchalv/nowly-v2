@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { TaskItem } from './TaskItem';
 import type { Task, Category } from '@/types/supabase';
 import { useUIStore } from '@/stores/ui-store';
-import { ContextualTooltip } from '@/components/features/onboarding';
+import { ContextualTooltip } from '@/components/features/onboarding/ContextualTooltip';
 import { TooltipType } from '@/hooks/useOnboarding';
 
 interface TaskWithRelations extends Task {

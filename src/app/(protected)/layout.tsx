@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { SentryUserContext } from '@/components/sentry-user-context';
-import { OnboardingTour } from '@/components/features/onboarding';
+import { OnboardingTour } from '@/components/features/onboarding/OnboardingTour';
 
 interface ProtectedLayoutProps {
   children: ReactNode;

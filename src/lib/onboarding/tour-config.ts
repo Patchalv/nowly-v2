@@ -70,5 +70,5 @@ export const SIDEBAR_SELECTORS = [
  */
 export function isSidebarElement(selector: string | undefined): boolean {
   if (!selector) return false;
-  return SIDEBAR_SELECTORS.some((s) => selector === s || selector.includes(s));
+  return SIDEBAR_SELECTORS.includes(selector);
 }
