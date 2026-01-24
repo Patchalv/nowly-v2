@@ -38,6 +38,7 @@ export function TaskCard({ task, onToggleComplete, onClick }: TaskCardProps) {
 
       {/* Task content - clickable */}
       <button
+        type="button"
         onClick={onClick}
         className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left"
       >

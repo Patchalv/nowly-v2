@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   format,
   startOfWeek,
@@ -66,6 +66,12 @@ export default function WeeklyPage() {
   const [optimisticTasks, setOptimisticTasks] = useState<
     TaskWithRelations[] | undefined
   >(undefined);
+
+  // Reset optimistic state when week or workspace changes to avoid stale data
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOptimisticTasks(undefined);
+  }, [selectedWeekStart, selectedWorkspaceId]);
 
   // Use optimistic tasks if available, otherwise use filtered tasks
   const displayTasks = optimisticTasks ?? incompleteTasks;
