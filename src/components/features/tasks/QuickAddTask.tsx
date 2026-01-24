@@ -19,11 +19,15 @@ import { toast } from 'sonner';
 interface QuickAddTaskProps {
   scheduledDate: string;
   workspaceId?: string | null; // Optional when Master is selected
+  placeholder?: string;
 }
+
+const DEFAULT_PLACEHOLDER = 'Add a task...';
 
 export function QuickAddTask({
   scheduledDate,
   workspaceId,
+  placeholder = DEFAULT_PLACEHOLDER,
 }: QuickAddTaskProps) {
   const [title, setTitle] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
@@ -97,7 +101,7 @@ export function QuickAddTask({
         className="text-muted-foreground hover:text-foreground hover:bg-accent/50 flex w-full items-center gap-2 rounded-lg border border-dashed px-4 py-3 text-left transition-colors hover:border-solid"
       >
         <Plus className="h-4 w-4 text-blue-500" />
-        <span>Add a task to Today...</span>
+        <span>{placeholder}</span>
       </button>
     );
   }
@@ -112,7 +116,7 @@ export function QuickAddTask({
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Add a task to Today..."
+          placeholder={placeholder}
           className="h-auto flex-1 border-0 p-0 focus-visible:ring-0"
           autoFocus
           onBlur={() => {
