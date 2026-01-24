@@ -15,6 +15,7 @@ import { useWorkspaceStore } from '@/stores/workspace-store';
 import { useUIStore } from '@/stores/ui-store';
 import { WeekNavigation } from '@/components/features/weekly/WeekNavigation';
 import { WeekGrid } from '@/components/features/weekly/WeekGrid';
+import { DayCarousel } from '@/components/features/weekly/DayCarousel';
 import { TaskDialog } from '@/components/features/tasks/TaskDialog';
 import type { Task, Category } from '@/types/supabase';
 
@@ -160,11 +161,17 @@ export default function WeeklyPage() {
         />
       </div>
 
-      {/* Mobile: Placeholder for DayCarousel (Phase 4) */}
-      <div className="bg-card min-h-0 flex-1 rounded-lg border p-4 md:hidden">
-        <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
-          <p>Mobile carousel coming in Phase 4</p>
-        </div>
+      {/* Mobile: Day Carousel */}
+      <div className="min-h-0 flex-1 md:hidden">
+        <DayCarousel
+          weekStart={selectedWeekStart}
+          tasks={displayTasks}
+          showWeekend={showWeekend}
+          isLoading={isLoading}
+          onToggleComplete={handleToggleComplete}
+          onTaskClick={handleTaskClick}
+          workspaceId={selectedWorkspaceId}
+        />
       </div>
 
       {/* Task Dialog */}
