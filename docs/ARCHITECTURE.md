@@ -287,3 +287,58 @@ const reorder = (list: Task[], from: number, to: number) => {
 - Reordering updates multiple rows (batch update)
 - Optimistic update for instant feedback
 - Occasional "compact" operation to reset positions (optional)
+
+---
+
+## ADR-010: Driver.js for Onboarding Tours
+
+### Context
+
+New users need guidance to understand the app's unique features (scheduled vs due dates, workspaces, recurring tasks). Options considered:
+
+1. **Static documentation** — Users rarely read it
+2. **Custom tour implementation** — High effort, reinventing the wheel
+3. **Third-party tour library** — Quick to implement, proven patterns
+
+### Decision
+
+Use Driver.js for interactive product tours, supplemented by one-time contextual tooltips for feature discovery.
+
+### Rationale
+
+- **Lightweight**: ~5KB gzipped, no dependencies
+- **Accessible**: Keyboard navigation, focus management, screen reader support
+- **Customizable**: CSS-based styling matches shadcn/ui design
+- **Non-intrusive**: Users can skip or dismiss at any time
+- **Mobile support**: Separate step configuration for mobile viewports
+
+### Implementation Pattern
+
+```
+Tour Components:
+├── OnboardingTour.tsx      # Main tour controller (auto-starts for new users)
+├── ContextualTooltip.tsx   # One-time educational tooltips
+├── CelebrationOverlay.tsx  # Fireworks on tour completion
+└── ReplayTourButton.tsx    # Manual replay (dev only)
+
+State Management:
+├── useOnboarding.ts        # Hook for tour state, tooltip dismissal
+└── user_onboarding table   # Persists completion/dismissals in Supabase
+```
+
+### Critical Coupling Warning
+
+Tour steps use CSS selectors to target UI elements:
+
+- `#sidebar-workspace-selector`
+- `#quick-add-task`
+- `[href="/today"]`, `[href="/backlog"]`, etc.
+
+**Modifying these elements requires updating tour steps.** See AGENTS.md section 6 for the full list of coupled elements.
+
+### Consequences
+
+- Element IDs/selectors become part of the "public API" — changing them breaks the tour
+- Tour state persists in database — need migration to reset for all users if tour changes significantly
+- Contextual tooltips should be used sparingly to avoid tooltip fatigue
+- Mobile tour is abbreviated (5 steps) vs desktop (10 steps)
