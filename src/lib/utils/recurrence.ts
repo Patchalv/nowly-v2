@@ -3,8 +3,12 @@ import {
   addDays,
   addMonths,
   addYears,
+  addWeeks,
   setMonth,
   setDate,
+  startOfMonth,
+  endOfMonth,
+  getDay,
 } from 'date-fns';
 import type { RecurringTask } from '@/schemas/recurring-task';
 
@@ -47,13 +51,42 @@ function getMonthName(month: number): string {
 }
 
 /**
+ * Get full weekday name from day index (0=Mon, 6=Sun)
+ */
+function getWeekdayName(dayIndex: number): string {
+  const days = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+  return days[dayIndex] || '';
+}
+
+/**
+ * Get ordinal word for week of month (-1=last, 1-5=first through fifth)
+ */
+function getOrdinalWord(week: number): string {
+  if (week === -1) return 'last';
+  const ordinals = ['', 'first', 'second', 'third', 'fourth', 'fifth'];
+  return ordinals[week] || '';
+}
+
+/**
  * Converts recurrence configuration to human-readable description
  * Examples:
  * - "2 days after completion"
  * - "Every day"
  * - "Every 3 days"
  * - "Every Monday & Friday"
+ * - "Every 2 weeks on Friday"
  * - "5th of each month"
+ * - "15th of every 3 months"
+ * - "First Sunday of each month"
+ * - "Last Friday of every 2 months"
  * - "February 14 every year"
  */
 export function formatRecurrencePattern(
@@ -62,8 +95,11 @@ export function formatRecurrencePattern(
   const {
     recurrence_type,
     interval_days,
+    interval_weeks,
+    interval_months,
     days_of_week,
     day_of_month,
+    week_of_month,
     month_of_year,
   } = recurringTask;
 
@@ -77,14 +113,37 @@ export function formatRecurrencePattern(
     case 'fixed_weekly': {
       const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       const selectedDays = days_of_week?.map((d) => dayNames[d]).join(' & ');
-      return `Every ${selectedDays}`;
+      const weekInterval = interval_weeks || 1;
+
+      if (weekInterval === 1) {
+        return `Every ${selectedDays}`;
+      }
+      return `Every ${weekInterval} weeks on ${selectedDays}`;
     }
 
-    case 'fixed_monthly':
-      if (day_of_month === 31) {
-        return 'Last day of each month';
+    case 'fixed_monthly': {
+      const monthInterval = interval_months || 1;
+      const monthText =
+        monthInterval === 1 ? 'each month' : `every ${monthInterval} months`;
+
+      // Check if using Nth weekday pattern
+      if (
+        week_of_month !== undefined &&
+        week_of_month !== null &&
+        days_of_week &&
+        days_of_week.length > 0
+      ) {
+        const weekText = getOrdinalWord(week_of_month);
+        const dayText = getWeekdayName(days_of_week[0]);
+        return `${weekText.charAt(0).toUpperCase() + weekText.slice(1)} ${dayText} of ${monthText}`;
       }
-      return `${day_of_month}${getOrdinalSuffix(day_of_month!)} of each month`;
+
+      // Day of month pattern
+      if (day_of_month === 31) {
+        return `Last day of ${monthText}`;
+      }
+      return `${day_of_month}${getOrdinalSuffix(day_of_month!)} of ${monthText}`;
+    }
 
     case 'fixed_yearly': {
       if (!month_of_year || !day_of_month) return 'Yearly';
@@ -118,27 +177,104 @@ export function formatDateRange(
 }
 
 /**
- * Find the next occurrence of a specific weekday from a given date
+ * Convert JavaScript getDay() (0=Sun, 6=Sat) to our format (0=Mon, 6=Sun)
  */
-function findNextWeekday(fromDate: Date, daysOfWeek: number[]): Date {
-  const currentDay = fromDate.getDay();
-  const adjustedCurrentDay = currentDay === 0 ? 6 : currentDay - 1; // Convert to 0=Mon, 6=Sun
+function convertJsDayToOurFormat(jsDay: number): number {
+  return jsDay === 0 ? 6 : jsDay - 1;
+}
 
-  // Sort days to find the next occurrence
+/**
+ * Find the next occurrence of specific weekday(s) with optional week interval
+ */
+function findNextWeekdayWithInterval(
+  fromDate: Date,
+  daysOfWeek: number[],
+  intervalWeeks: number = 1
+): Date {
   const sortedDays = [...daysOfWeek].sort((a, b) => a - b);
+  let tempDate = addDays(fromDate, 1); // Start from next day
 
-  // Find next day in current week
-  for (const targetDay of sortedDays) {
-    if (targetDay > adjustedCurrentDay) {
-      const daysToAdd = targetDay - adjustedCurrentDay;
-      return addDays(fromDate, daysToAdd);
+  // For interval > 1, we need to track when we cross week boundaries
+  const baseWeekStart = addDays(
+    fromDate,
+    -convertJsDayToOurFormat(getDay(fromDate))
+  );
+
+  for (let i = 0; i < 60; i++) {
+    // Safety: max 60 days
+    const adjustedDay = convertJsDayToOurFormat(getDay(tempDate));
+
+    if (sortedDays.includes(adjustedDay)) {
+      // Check if enough weeks have passed for intervals > 1
+      if (intervalWeeks === 1) {
+        return tempDate;
+      }
+
+      const currentWeekStart = addDays(
+        tempDate,
+        -convertJsDayToOurFormat(getDay(tempDate))
+      );
+      const weeksPassed = Math.floor(
+        (currentWeekStart.getTime() - baseWeekStart.getTime()) /
+          (7 * 24 * 60 * 60 * 1000)
+      );
+
+      if (weeksPassed >= intervalWeeks - 1) {
+        return tempDate;
+      }
     }
+
+    tempDate = addDays(tempDate, 1);
   }
 
-  // If no day found in current week, go to first day of next week
-  const firstDay = sortedDays[0];
-  const daysToAdd = 7 - adjustedCurrentDay + firstDay;
-  return addDays(fromDate, daysToAdd);
+  // Fallback: just add interval weeks
+  return addWeeks(fromDate, intervalWeeks);
+}
+
+/**
+ * Find the Nth occurrence of a weekday in a given month
+ * @param year - The year
+ * @param month - The month (0-indexed like JS Date)
+ * @param dayOfWeek - Our format: 0=Mon, 6=Sun
+ * @param nth - Which occurrence: 1-5 for 1st-5th, -1 for last
+ */
+function findNthWeekdayOfMonth(
+  year: number,
+  month: number,
+  dayOfWeek: number,
+  nth: number
+): Date | null {
+  const firstOfMonth = new Date(year, month, 1);
+  const lastOfMonth = endOfMonth(firstOfMonth);
+
+  if (nth === -1) {
+    // Find last occurrence - start from end of month
+    let date = lastOfMonth;
+    while (date >= firstOfMonth) {
+      if (convertJsDayToOurFormat(getDay(date)) === dayOfWeek) {
+        return date;
+      }
+      date = addDays(date, -1);
+    }
+    return null;
+  }
+
+  // Find nth occurrence - start from beginning of month
+  let count = 0;
+  let date = firstOfMonth;
+
+  while (date <= lastOfMonth) {
+    if (convertJsDayToOurFormat(getDay(date)) === dayOfWeek) {
+      count++;
+      if (count === nth) {
+        return date;
+      }
+    }
+    date = addDays(date, 1);
+  }
+
+  // If nth doesn't exist (e.g., 5th Monday), return last occurrence
+  return findNthWeekdayOfMonth(year, month, dayOfWeek, -1);
 }
 
 /**
@@ -153,8 +289,11 @@ export function calculateNextTaskDate(
   const {
     recurrence_type,
     interval_days,
+    interval_weeks,
+    interval_months,
     days_of_week,
     day_of_month,
+    week_of_month,
     month_of_year,
   } = recurringTask;
 
@@ -164,22 +303,38 @@ export function calculateNextTaskDate(
       return addDays(baseDate, interval_days || 1);
 
     case 'fixed_weekly':
-      return findNextWeekday(baseDate, days_of_week || []);
+      return findNextWeekdayWithInterval(
+        baseDate,
+        days_of_week || [],
+        interval_weeks || 1
+      );
 
     case 'fixed_monthly': {
-      let nextMonth = addMonths(baseDate, 1);
-      // Handle last day of month
-      if (day_of_month === 31) {
-        const lastDay = new Date(
-          nextMonth.getFullYear(),
-          nextMonth.getMonth() + 1,
-          0
-        ).getDate();
-        nextMonth = setDate(nextMonth, lastDay);
-      } else {
-        nextMonth = setDate(nextMonth, day_of_month || 1);
+      const monthInterval = interval_months || 1;
+      const targetMonth = addMonths(startOfMonth(baseDate), monthInterval);
+
+      // Check if using Nth weekday pattern
+      if (
+        week_of_month !== undefined &&
+        week_of_month !== null &&
+        days_of_week &&
+        days_of_week.length > 0
+      ) {
+        const result = findNthWeekdayOfMonth(
+          targetMonth.getFullYear(),
+          targetMonth.getMonth(),
+          days_of_week[0],
+          week_of_month
+        );
+        return result || targetMonth;
       }
-      return nextMonth;
+
+      // Day of month pattern
+      if (day_of_month === 31) {
+        // Last day of month
+        return endOfMonth(targetMonth);
+      }
+      return setDate(targetMonth, day_of_month || 1);
     }
 
     case 'fixed_yearly': {
@@ -219,6 +374,7 @@ export function getDefaultRecurrenceConfig(
     case 'fixed_weekly':
       return {
         recurrence_type: 'fixed_weekly',
+        interval_weeks: 1,
         days_of_week: [0], // Monday
         start_date: todayStr,
         next_due_date: todayStr,
@@ -227,6 +383,7 @@ export function getDefaultRecurrenceConfig(
     case 'fixed_monthly':
       return {
         recurrence_type: 'fixed_monthly',
+        interval_months: 1,
         day_of_month: 1,
         start_date: todayStr,
         next_due_date: todayStr,
