@@ -9,6 +9,7 @@ import {
   startOfMonth,
   endOfMonth,
   getDay,
+  differenceInCalendarWeeks,
 } from 'date-fns';
 import type { RecurringTask } from '@/schemas/recurring-task';
 
@@ -225,9 +226,11 @@ function findNextWeekdayWithInterval(
         tempDate,
         -convertJsDayToOurFormat(getDay(tempDate))
       );
-      const weeksPassed = Math.floor(
-        (currentWeekStart.getTime() - baseWeekStart.getTime()) /
-          (7 * 24 * 60 * 60 * 1000)
+      // Use differenceInCalendarWeeks to avoid DST off-by-one errors
+      const weeksPassed = differenceInCalendarWeeks(
+        currentWeekStart,
+        baseWeekStart,
+        { weekStartsOn: 1 } // Monday
       );
 
       // Use modulo to ensure proper interval (biweekly = weeks 0, 2, 4...)
