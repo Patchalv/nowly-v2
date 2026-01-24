@@ -185,20 +185,20 @@ export default function RecurringPage() {
         </p>
       </div>
 
-      {/* Quick Add */}
-      <div className="mb-6">
-        <QuickAddRecurring
-          workspaceId={selectedWorkspaceId}
-          onOpenDialog={handleOpenDialog}
-        />
-      </div>
-
       {/* Search */}
       <div className="mb-6">
         <SearchInput
           value={searchQuery}
           onChange={handleSearchChange}
           placeholder="Search recurring tasks..."
+        />
+      </div>
+
+      {/* Quick Add */}
+      <div className="mb-6">
+        <QuickAddRecurring
+          workspaceId={selectedWorkspaceId}
+          onOpenDialog={handleOpenDialog}
         />
       </div>
 

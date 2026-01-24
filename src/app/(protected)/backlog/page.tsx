@@ -167,11 +167,6 @@ export default function BacklogPage() {
         </p>
       </div>
 
-      {/* Quick Add Task */}
-      <div className="mb-6">
-        <QuickAddBacklog workspaceId={selectedWorkspaceId} />
-      </div>
-
       {/* Search */}
       <div className="mb-6">
         <SearchInput
@@ -179,6 +174,11 @@ export default function BacklogPage() {
           onChange={handleSearchChange}
           placeholder="Search backlog tasks..."
         />
+      </div>
+
+      {/* Quick Add Task */}
+      <div className="mb-6">
+        <QuickAddBacklog workspaceId={selectedWorkspaceId} />
       </div>
 
       {/* Tasks Section */}
