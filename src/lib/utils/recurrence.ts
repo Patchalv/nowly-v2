@@ -142,7 +142,8 @@ export function formatRecurrencePattern(
       if (day_of_month === 31) {
         return `Last day of ${monthText}`;
       }
-      return `${day_of_month}${getOrdinalSuffix(day_of_month!)} of ${monthText}`;
+      const dayNum = day_of_month ?? 1;
+      return `${dayNum}${getOrdinalSuffix(dayNum)} of ${monthText}`;
     }
 
     case 'fixed_yearly': {
@@ -339,7 +340,10 @@ export function calculateNextTaskDate(
         // Last day of month
         return endOfMonth(targetMonth);
       }
-      return setDate(targetMonth, day_of_month || 1);
+      // Clamp to last day of month to handle short months (e.g., Feb 30 -> Feb 28)
+      const targetDay = day_of_month || 1;
+      const lastDayOfMonth = endOfMonth(targetMonth).getDate();
+      return setDate(targetMonth, Math.min(targetDay, lastDayOfMonth));
     }
 
     case 'fixed_yearly': {
@@ -348,7 +352,9 @@ export function calculateNextTaskDate(
         nextYear = setMonth(nextYear, month_of_year - 1);
       }
       if (day_of_month) {
-        nextYear = setDate(nextYear, day_of_month);
+        // Clamp to last day of month to handle short months (e.g., Feb 30 -> Feb 28)
+        const lastDay = endOfMonth(nextYear).getDate();
+        nextYear = setDate(nextYear, Math.min(day_of_month, lastDay));
       }
       return nextYear;
     }
