@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { ThemeProvider } from '@/components/theme-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
 import './globals.css';
+import '@/styles/onboarding-tour.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 

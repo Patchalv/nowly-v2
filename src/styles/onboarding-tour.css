@@ -1,0 +1,198 @@
+/**
+ * Custom Driver.js styles to match shadcn/ui design system
+ * These override the default Driver.js styles
+ */
+
+/* Popover container */
+.driver-popover {
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1);
+  padding: 1rem;
+  max-width: 320px;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 767px) {
+  .driver-popover {
+    max-width: calc(100vw - 2rem);
+    margin: 0 1rem;
+  }
+}
+
+/* Popover arrow */
+.driver-popover-arrow {
+  border: 1px solid var(--border);
+  background: var(--popover);
+}
+
+.driver-popover-arrow-side-left,
+.driver-popover-arrow-side-right {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+}
+
+.driver-popover-arrow-side-top,
+.driver-popover-arrow-side-bottom {
+  border-left-color: transparent;
+  border-right-color: transparent;
+}
+
+/* Title */
+.driver-popover-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+}
+
+/* Description */
+.driver-popover-description {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  margin-top: 0.5rem;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+/* Footer (contains buttons and progress) */
+.driver-popover-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+  gap: 0.5rem;
+}
+
+/* Progress text (e.g., "1 of 10") */
+.driver-popover-progress-text {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+/* Button container */
+.driver-popover-navigation-btns {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+/* Base button styles (matching shadcn Button) */
+.driver-popover-prev-btn,
+.driver-popover-next-btn,
+.driver-popover-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  border-radius: calc(var(--radius) - 2px);
+  font-size: 0.875rem;
+  font-weight: 500;
+  height: 2.25rem;
+  padding: 0 1rem;
+  transition-property: color, background-color, border-color;
+  transition-duration: 150ms;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+/* Previous button (outline variant) */
+.driver-popover-prev-btn {
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+
+.driver-popover-prev-btn:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* Next/Done button (primary variant) */
+.driver-popover-next-btn {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.driver-popover-next-btn:hover {
+  background: var(--primary);
+  opacity: 0.9;
+}
+
+/* Close button (ghost variant, positioned top-right) */
+.driver-popover-close-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: transparent;
+  color: var(--muted-foreground);
+  padding: 0.25rem;
+  height: 1.75rem;
+  width: 1.75rem;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+.driver-popover-close-btn:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+/* Hide default close button text, use X icon */
+.driver-popover-close-btn {
+  font-size: 0;
+}
+
+.driver-popover-close-btn::after {
+  content: '\00D7';
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+/* Overlay */
+.driver-overlay {
+  background: rgb(0 0 0 / 0.75);
+}
+
+/* Highlighted element */
+.driver-active-element {
+  /* Add subtle highlight ring */
+  box-shadow: 0 0 0 4px var(--ring) !important;
+}
+
+/* Focus states */
+.driver-popover-prev-btn:focus-visible,
+.driver-popover-next-btn:focus-visible,
+.driver-popover-close-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Custom class for Nowly tour */
+.nowly-tour-popover {
+  /* Additional custom styles if needed */
+}
+
+/* Smooth animations */
+.driver-popover {
+  animation: driver-popover-fade-in 0.2s ease-out;
+}
+
+@keyframes driver-popover-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
