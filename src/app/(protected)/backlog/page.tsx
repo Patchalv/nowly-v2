@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { QuickAddBacklog } from '@/components/features/tasks/QuickAddBacklog';
 import { TaskList } from '@/components/features/tasks/TaskList';
 import { TaskDialog } from '@/components/features/tasks/TaskDialog';
+import { SearchInput } from '@/components/features/search/SearchInput';
 import { useInboxTasks } from '@/hooks/useTasks';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useCreateWorkspace } from '@/hooks/useCreateWorkspace';
@@ -22,9 +23,28 @@ export default function BacklogPage() {
   );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const hasCreatedWorkspace = useRef(false);
   const supabase = createClient();
   const { selectedWorkspaceId } = useWorkspaceStore();
+  const previousWorkspaceId = useRef(selectedWorkspaceId);
+
+  // Reset search when workspace changes
+  // This is a legitimate pattern for syncing state with external changes (store change triggers state reset)
+  useEffect(() => {
+    // Skip initial mount - search already has default value
+    if (previousWorkspaceId.current !== selectedWorkspaceId) {
+      previousWorkspaceId.current = selectedWorkspaceId;
+      /* eslint-disable react-hooks/set-state-in-effect */
+      setSearchQuery('');
+      /* eslint-enable react-hooks/set-state-in-effect */
+    }
+  }, [selectedWorkspaceId]);
+
+  // Memoize search change handler to avoid unnecessary re-renders
+  const handleSearchChange = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
 
   // Get current user
   useEffect(() => {
@@ -72,14 +92,14 @@ export default function BacklogPage() {
     createDefaultWorkspace();
   }, [workspacesLoading, defaultWorkspace, userId, createWorkspace]);
 
-  // Fetch backlog tasks (tasks with no scheduled date, filtered by workspace)
+  // Fetch backlog tasks (tasks with no scheduled date, filtered by workspace and search)
   const {
     data: allTasks,
     isLoading: tasksLoading,
     isError,
     error,
     refetch,
-  } = useInboxTasks(selectedWorkspaceId);
+  } = useInboxTasks(selectedWorkspaceId, searchQuery);
 
   // Filter to show only uncompleted tasks
   const tasks = useMemo(() => {
@@ -145,6 +165,15 @@ export default function BacklogPage() {
         <p className="text-muted-foreground mt-2 text-sm">
           Tasks without a scheduled date
         </p>
+      </div>
+
+      {/* Search */}
+      <div className="mb-6">
+        <SearchInput
+          value={searchQuery}
+          onChange={handleSearchChange}
+          placeholder="Search backlog tasks..."
+        />
       </div>
 
       {/* Quick Add Task */}

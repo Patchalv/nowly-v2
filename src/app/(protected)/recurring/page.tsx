@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { QuickAddRecurring } from '@/components/features/recurring/QuickAddRecurring';
 import { RecurringList } from '@/components/features/recurring/RecurringList';
 import { RecurringDialog } from '@/components/features/recurring/RecurringDialog';
+import { SearchInput } from '@/components/features/search/SearchInput';
 import { useRecurringTasks } from '@/hooks/useRecurringTasks';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useCreateWorkspace } from '@/hooks/useCreateWorkspace';
@@ -30,9 +31,28 @@ export default function RecurringPage() {
     Partial<RecurringTask> | undefined
   >(undefined);
   const [userId, setUserId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const hasCreatedWorkspace = useRef(false);
   const supabase = createClient();
   const { selectedWorkspaceId } = useWorkspaceStore();
+  const previousWorkspaceId = useRef(selectedWorkspaceId);
+
+  // Reset search when workspace changes
+  // This is a legitimate pattern for syncing state with external changes (store change triggers state reset)
+  useEffect(() => {
+    // Skip initial mount - search already has default value
+    if (previousWorkspaceId.current !== selectedWorkspaceId) {
+      previousWorkspaceId.current = selectedWorkspaceId;
+      /* eslint-disable react-hooks/set-state-in-effect */
+      setSearchQuery('');
+      /* eslint-enable react-hooks/set-state-in-effect */
+    }
+  }, [selectedWorkspaceId]);
+
+  // Memoize search change handler to avoid unnecessary re-renders
+  const handleSearchChange = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
 
   // Get current user
   useEffect(() => {
@@ -80,14 +100,14 @@ export default function RecurringPage() {
     createDefaultWorkspace();
   }, [workspacesLoading, defaultWorkspace, userId, createWorkspace]);
 
-  // Fetch recurring tasks (filtered by workspace)
+  // Fetch recurring tasks (filtered by workspace and search)
   const {
     data: recurringTasks,
     isLoading: tasksLoading,
     isError,
     error,
     refetch,
-  } = useRecurringTasks(selectedWorkspaceId);
+  } = useRecurringTasks(selectedWorkspaceId, searchQuery);
 
   // Fetch categories for the selected workspace (or default workspace if in Master view)
   const workspaceForCategories =
@@ -163,6 +183,15 @@ export default function RecurringPage() {
         <p className="text-muted-foreground mt-2 text-sm">
           Manage templates that automatically create tasks
         </p>
+      </div>
+
+      {/* Search */}
+      <div className="mb-6">
+        <SearchInput
+          value={searchQuery}
+          onChange={handleSearchChange}
+          placeholder="Search recurring tasks..."
+        />
       </div>
 
       {/* Quick Add */}
