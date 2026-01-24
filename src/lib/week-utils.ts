@@ -11,7 +11,7 @@ import {
 
 /**
  * Generate human-readable week label
- * Examples: "This Week (Jan 20-26)", "Next Week (Jan 27-Feb 2)", "Jan 13-19, 2025"
+ * Examples: "This Week (Jan 20-26)", "Next Week (Jan 27-Feb 2)", "Dec 30-Jan 5, 2024/2025"
  */
 export function getWeekLabel(date: Date): string {
   const weekStart = startOfWeek(date, { weekStartsOn: 1 });
@@ -21,7 +21,8 @@ export function getWeekLabel(date: Date): string {
   const endMonth = format(weekEnd, 'MMM');
   const startDay = format(weekStart, 'd');
   const endDay = format(weekEnd, 'd');
-  const year = format(date, 'yyyy');
+  const startYear = format(weekStart, 'yyyy');
+  const endYear = format(weekEnd, 'yyyy');
 
   // Format date range (handle month boundary)
   const dateRange =
@@ -43,5 +44,9 @@ export function getWeekLabel(date: Date): string {
     return `Last Week (${dateRange})`;
   }
 
-  return `${dateRange}, ${year}`;
+  // Handle year boundary (e.g., Dec 30 - Jan 5 spanning two years)
+  const yearLabel =
+    startYear !== endYear ? `${startYear}/${endYear}` : startYear;
+
+  return `${dateRange}, ${yearLabel}`;
 }
