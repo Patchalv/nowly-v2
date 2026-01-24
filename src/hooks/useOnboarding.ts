@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import {
   useQuery,
   useUpdateMutation,
 } from '@supabase-cache-helpers/postgrest-react-query';
-import { useQueryClient } from '@tanstack/react-query';
+// Note: useQueryClient removed - using refetch from useQuery instead
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/client';
 import { handleSupabaseError } from '@/lib/errors/supabase-error-handler';
@@ -42,23 +42,25 @@ import { TooltipType } from '@/types/onboarding';
  */
 export function useOnboarding() {
   const supabase = createClient();
-  const queryClient = useQueryClient();
 
   // Fetch onboarding state (RLS ensures we only get our own record)
   const {
     data,
     isLoading,
     error: fetchError,
+    refetch,
   } = useQuery(supabase.from('user_onboarding').select('*').single());
 
-  // Log fetch errors
-  if (fetchError) {
-    handleSupabaseError(fetchError, {
-      table: 'user_onboarding',
-      operation: 'select',
-      source: 'useOnboarding',
-    });
-  }
+  // Log fetch errors in useEffect to avoid re-logging on every render
+  useEffect(() => {
+    if (fetchError) {
+      handleSupabaseError(fetchError, {
+        table: 'user_onboarding',
+        operation: 'select',
+        source: 'useOnboarding',
+      });
+    }
+  }, [fetchError]);
 
   // Mutation to update onboarding record
   const updateMutation = useUpdateMutation(
@@ -168,16 +170,14 @@ export function useOnboarding() {
           throw error;
         }
 
-        // Invalidate query to refetch updated data
-        queryClient.invalidateQueries({
-          queryKey: ['user_onboarding'],
-        });
+        // Refetch to get updated data
+        await refetch();
       } catch (err) {
         // Error already logged, just re-throw
         throw err;
       }
     },
-    [data?.id, data?.dismissed_tooltips, hasSeenTooltip, supabase, queryClient]
+    [data?.id, data?.dismissed_tooltips, hasSeenTooltip, supabase, refetch]
   );
 
   return {

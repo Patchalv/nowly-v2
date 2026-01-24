@@ -320,7 +320,7 @@ function TaskDialogContent({
           tooltipType={TooltipType.TASK_DIALOG_SCHEDULED_DUE}
           element="[data-scheduled-date-field]"
           title="Scheduled vs Due Dates"
-          description="SCHEDULED = When you'll work on this task&#10;DUE = Hard deadline&#10;&#10;Set both for deadline-driven work, or just scheduled for open-ended tasks."
+          description={`SCHEDULED = When you'll work on this task\nDUE = Hard deadline\n\nSet both for deadline-driven work, or just scheduled for open-ended tasks.`}
           side="right"
           enabled={true}
           delay={1000}

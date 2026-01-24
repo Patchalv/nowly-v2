@@ -16,8 +16,6 @@ import { cn } from '@/lib/utils';
 import { useUpdateTask } from '@/hooks/useUpdateTask';
 import { toast } from 'sonner';
 import type { Task, Category } from '@/types/supabase';
-import { ContextualTooltip } from '@/components/features/onboarding';
-import { TooltipType } from '@/hooks/useOnboarding';
 
 interface TaskWithRelations extends Task {
   category?: Category | null;
@@ -175,18 +173,6 @@ export function TaskItem({
             />
           </PopoverContent>
         </Popover>
-      )}
-
-      {/* Contextual tooltip for reschedule button - only show once per user */}
-      {!hideReschedule && (
-        <ContextualTooltip
-          tooltipType={TooltipType.RESCHEDULE_BUTTON}
-          element="[data-reschedule-button]"
-          title="Quick Reschedule"
-          description="Click to quickly move this task to another date without opening the full editor."
-          side="top"
-          enabled={true}
-        />
       )}
     </div>
   );

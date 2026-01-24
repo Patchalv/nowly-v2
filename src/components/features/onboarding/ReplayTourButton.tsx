@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { driver, type DriveStep, type Driver } from 'driver.js';
 import { PlayCircle } from 'lucide-react';
 import * as Sentry from '@sentry/nextjs';
@@ -54,6 +54,16 @@ export function ReplayTourButton() {
       setOpenMobile(false);
     }
   }, [isMobileSidebar, setOpenMobile]);
+
+  // Cleanup driver instance on unmount
+  useEffect(() => {
+    return () => {
+      if (driverRef.current) {
+        driverRef.current.destroy();
+        driverRef.current = null;
+      }
+    };
+  }, []);
 
   /**
    * Start the tour when button is clicked.
