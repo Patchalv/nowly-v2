@@ -89,7 +89,8 @@ export default function AllTasksPage() {
       }
     };
     createDefaultWorkspace();
-  }, [workspacesLoading, defaultWorkspace, userId, createWorkspace]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspacesLoading, defaultWorkspace, userId]);
 
   // Fetch categories (supports null for Master view)
   const { data: categories } = useCategories(selectedWorkspaceId);
@@ -127,11 +128,9 @@ export default function AllTasksPage() {
     // Skip initial mount - filters already have default values
     if (previousWorkspaceId.current !== selectedWorkspaceId) {
       previousWorkspaceId.current = selectedWorkspaceId;
-      /* eslint-disable react-hooks/set-state-in-effect */
       setSearchQuery('');
       setSelectedCategories([]);
       setSortBy('due_date');
-      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [selectedWorkspaceId]);
 
