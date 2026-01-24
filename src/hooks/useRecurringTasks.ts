@@ -5,8 +5,12 @@ import { createClient } from '@/lib/supabase/client';
  * Fetch all recurring tasks for the current user
  * Includes category and workspace relations
  * @param workspaceId - Optional workspace filter (null = all workspaces)
+ * @param searchQuery - Optional search string for title (min 2 chars, pre-escaped)
  */
-export function useRecurringTasks(workspaceId?: string | null) {
+export function useRecurringTasks(
+  workspaceId?: string | null,
+  searchQuery?: string
+) {
   const supabase = createClient();
 
   let query = supabase.from('recurring_tasks').select(
@@ -20,6 +24,11 @@ export function useRecurringTasks(workspaceId?: string | null) {
   // Apply workspace filter if specified
   if (workspaceId) {
     query = query.eq('workspace_id', workspaceId);
+  }
+
+  // Apply search filter if specified (expects pre-escaped string, min 2 chars)
+  if (searchQuery && searchQuery.length >= 2) {
+    query = query.ilike('title', `%${searchQuery}%`);
   }
 
   return useQuery(query.order('created_at', { ascending: false }));
