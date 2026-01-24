@@ -127,17 +127,25 @@ export function OnboardingTour() {
 
     // Initialize driver with a delay to ensure UI is ready
     const timeoutId = setTimeout(() => {
-      const steps = getTourSteps(isMobile());
+      try {
+        const steps = getTourSteps(isMobile());
 
-      driverRef.current = driver({
-        ...TOUR_CONFIG,
-        steps,
-        onHighlightStarted: handleStepChange,
-        onDestroyed: handleTourComplete,
-      });
+        driverRef.current = driver({
+          ...TOUR_CONFIG,
+          steps,
+          onHighlightStarted: handleStepChange,
+          onDestroyed: handleTourComplete,
+        });
 
-      // Start the tour
-      driverRef.current.drive();
+        // Start the tour
+        driverRef.current.drive();
+      } catch (error) {
+        Sentry.captureException(error, {
+          tags: { feature: 'onboarding', action: 'tour_start' },
+        });
+        // If tour fails to start, still mark as complete to avoid blocking user
+        handleTourComplete();
+      }
     }, TOUR_START_DELAY);
 
     // Cleanup on unmount

@@ -5,6 +5,8 @@ import { driver, type DriveStep, type Driver } from 'driver.js';
 import { PlayCircle } from 'lucide-react';
 import * as Sentry from '@sentry/nextjs';
 
+import { toast } from 'sonner';
+
 import { Button } from '@/components/ui/button';
 import { useSidebar } from '@/components/ui/sidebar';
 import {
@@ -79,22 +81,31 @@ export function ReplayTourButton() {
       },
     });
 
-    const steps = getTourSteps(isMobile());
+    try {
+      const steps = getTourSteps(isMobile());
 
-    // Clean up any existing driver instance
-    if (driverRef.current) {
-      driverRef.current.destroy();
+      // Clean up any existing driver instance
+      if (driverRef.current) {
+        driverRef.current.destroy();
+      }
+
+      driverRef.current = driver({
+        ...TOUR_CONFIG,
+        steps,
+        onHighlightStarted: handleStepChange,
+        onDestroyed: handleTourComplete,
+      });
+
+      // Start the tour
+      driverRef.current.drive();
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: { feature: 'onboarding', action: 'replay_tour' },
+      });
+      toast.error('Failed to start tour', {
+        description: 'Please try again or refresh the page.',
+      });
     }
-
-    driverRef.current = driver({
-      ...TOUR_CONFIG,
-      steps,
-      onHighlightStarted: handleStepChange,
-      onDestroyed: handleTourComplete,
-    });
-
-    // Start the tour
-    driverRef.current.drive();
   }, [handleStepChange, handleTourComplete]);
 
   return (

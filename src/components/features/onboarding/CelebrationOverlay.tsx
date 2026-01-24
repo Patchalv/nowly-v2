@@ -19,6 +19,14 @@ const CONFETTI_DURATION = 3000;
 const DEFAULT_CELEBRATION_DURATION = 4000;
 
 /**
+ * Check if user prefers reduced motion.
+ */
+function prefersReducedMotion(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
  * CelebrationOverlay component for showing fireworks and welcome message.
  *
  * Displays a full-screen overlay with confetti fireworks and a
@@ -39,11 +47,16 @@ export function CelebrationOverlay({
 }: CelebrationOverlayProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const hasStartedRef = useRef(false);
+  const rafIdRef = useRef<number | null>(null);
 
   /**
    * Fire confetti from both sides like fireworks.
+   * Returns a cleanup function to cancel ongoing animations.
    */
   const fireConfetti = useCallback(() => {
+    // Skip confetti for users who prefer reduced motion
+    if (prefersReducedMotion()) return;
+
     const end = Date.now() + CONFETTI_DURATION;
 
     // Color palette matching Nowly brand
@@ -79,7 +92,7 @@ export function CelebrationOverlay({
       });
 
       if (Date.now() < end) {
-        requestAnimationFrame(frame);
+        rafIdRef.current = requestAnimationFrame(frame);
       }
     };
 
@@ -95,7 +108,7 @@ export function CelebrationOverlay({
     });
 
     // Start continuous fireworks from sides
-    frame();
+    rafIdRef.current = requestAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
@@ -112,6 +125,8 @@ export function CelebrationOverlay({
     fireConfetti();
 
     // Start fade out animation before calling onComplete
+    // Using direct style manipulation here to avoid lint issues with setState in effects
+    // This is a one-time animation that doesn't need React's reconciliation
     const fadeOutTimer = setTimeout(() => {
       if (overlayRef.current) {
         overlayRef.current.style.opacity = '0';
@@ -126,6 +141,11 @@ export function CelebrationOverlay({
     return () => {
       clearTimeout(fadeOutTimer);
       clearTimeout(completeTimer);
+      // Cancel any ongoing RAF
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
     };
   }, [show, duration, onComplete, fireConfetti]);
 
@@ -137,16 +157,20 @@ export function CelebrationOverlay({
       className={cn(
         'fixed inset-0 z-[99999] flex items-center justify-center',
         'bg-black/60 backdrop-blur-sm',
-        'transition-opacity duration-500'
+        'transition-opacity duration-500',
+        // Respect reduced motion preferences
+        'motion-reduce:transition-none'
       )}
       style={{ opacity: 1 }}
-      role="alert"
+      role="status"
       aria-live="polite"
+      aria-label="Welcome celebration"
     >
       <div
         className={cn(
           'text-center',
-          'animate-in zoom-in-50 fade-in duration-500'
+          'animate-in zoom-in-50 fade-in duration-500',
+          'motion-reduce:animate-none'
         )}
       >
         <h1

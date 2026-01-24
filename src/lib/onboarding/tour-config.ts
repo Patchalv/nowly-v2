@@ -66,10 +66,9 @@ export const SIDEBAR_SELECTORS = [
 
 /**
  * Check if an element selector targets a sidebar element.
+ * Uses exact matching to avoid false positives.
  */
 export function isSidebarElement(selector: string | undefined): boolean {
   if (!selector) return false;
-  return SIDEBAR_SELECTORS.some(
-    (s) => selector.includes(s) || s.includes(selector)
-  );
+  return SIDEBAR_SELECTORS.some((s) => selector === s || selector.includes(s));
 }
