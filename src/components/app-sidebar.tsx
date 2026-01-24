@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   Archive,
   CalendarCheck,
+  CalendarDays,
   List,
   ListTodo,
   Repeat,
@@ -45,6 +46,11 @@ const navItems = [
     title: 'Daily tasks',
     url: '/daily',
     icon: ListTodo,
+  },
+  {
+    title: 'Weekly',
+    url: '/weekly',
+    icon: CalendarDays,
   },
   {
     title: 'All tasks',
