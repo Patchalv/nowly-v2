@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Popover,
   PopoverContent,
@@ -59,8 +60,11 @@ interface RecurringSaveData {
   priority: number;
   recurrence_type: RecurrenceType;
   interval_days?: number;
+  interval_weeks?: number;
+  interval_months?: number;
   days_of_week?: number[];
   day_of_month?: number;
+  week_of_month?: number;
   month_of_year?: number;
   start_date: string;
   end_date?: string;
@@ -90,9 +94,13 @@ const formSchema = z.object({
     'fixed_yearly',
   ]),
   interval_days: z.number().int().min(1).optional(),
+  interval_weeks: z.number().int().min(1).optional(),
+  interval_months: z.number().int().min(1).optional(),
   days_of_week: z.array(z.number()).optional(),
   day_of_month: z.number().int().min(1).max(31).optional(),
+  week_of_month: z.number().int().min(-1).max(5).optional(),
   month_of_year: z.number().int().min(1).max(12).optional(),
+  monthly_type: z.enum(['day_of_month', 'week_of_month']).optional(),
   start_date: z.date(),
   end_date: z.date().optional(),
   never_end: z.boolean(),
@@ -103,6 +111,15 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const WEEKDAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAY_FULL_NAMES = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
 const MONTH_NAMES = [
   'January',
   'February',
@@ -116,6 +133,14 @@ const MONTH_NAMES = [
   'October',
   'November',
   'December',
+];
+const ORDINAL_OPTIONS = [
+  { value: 1, label: 'First' },
+  { value: 2, label: 'Second' },
+  { value: 3, label: 'Third' },
+  { value: 4, label: 'Fourth' },
+  { value: 5, label: 'Fifth' },
+  { value: -1, label: 'Last' },
 ];
 
 function getOrdinalSuffix(day: number): string {
@@ -143,6 +168,11 @@ function RecurringDialogContent({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Determine if existing task uses week_of_month pattern
+  const existingUsesWeekOfMonth =
+    recurringTask?.week_of_month !== undefined &&
+    recurringTask?.week_of_month !== null;
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: recurringTask
@@ -152,9 +182,15 @@ function RecurringDialogContent({
           category_id: recurringTask.category_id || undefined,
           recurrence_type: recurringTask.recurrence_type,
           interval_days: recurringTask.interval_days || undefined,
+          interval_weeks: recurringTask.interval_weeks || 1,
+          interval_months: recurringTask.interval_months || 1,
           days_of_week: recurringTask.days_of_week || undefined,
           day_of_month: recurringTask.day_of_month || undefined,
+          week_of_month: recurringTask.week_of_month ?? undefined,
           month_of_year: recurringTask.month_of_year || undefined,
+          monthly_type: existingUsesWeekOfMonth
+            ? 'week_of_month'
+            : 'day_of_month',
           start_date: new Date(recurringTask.start_date),
           end_date: recurringTask.end_date
             ? new Date(recurringTask.end_date)
@@ -168,6 +204,9 @@ function RecurringDialogContent({
           description: '',
           recurrence_type: 'fixed_daily',
           interval_days: 1,
+          interval_weeks: 1,
+          interval_months: 1,
+          monthly_type: 'day_of_month',
           start_date: new Date(),
           never_end: true,
           is_active: true,
@@ -177,12 +216,18 @@ function RecurringDialogContent({
 
   const recurrenceType = form.watch('recurrence_type');
   const neverEnd = form.watch('never_end');
+  const monthlyType = form.watch('monthly_type');
+  // Watch these values for reactivity in useEffect
+  const dayOfMonth = form.watch('day_of_month');
+  const weekOfMonth = form.watch('week_of_month');
+  const daysOfWeek = form.watch('days_of_week');
 
   // Reset conditional fields when recurrence type changes
   useEffect(() => {
     form.setValue('interval_days', undefined);
     form.setValue('days_of_week', undefined);
     form.setValue('day_of_month', undefined);
+    form.setValue('week_of_month', undefined);
     form.setValue('month_of_year', undefined);
 
     // Set defaults based on type
@@ -191,8 +236,11 @@ function RecurringDialogContent({
     } else if (recurrenceType === 'interval_from_completion') {
       form.setValue('interval_days', 2);
     } else if (recurrenceType === 'fixed_weekly') {
+      form.setValue('interval_weeks', 1);
       form.setValue('days_of_week', [0]); // Monday
     } else if (recurrenceType === 'fixed_monthly') {
+      form.setValue('interval_months', 1);
+      form.setValue('monthly_type', 'day_of_month');
       form.setValue('day_of_month', 1);
     } else if (recurrenceType === 'fixed_yearly') {
       const today = new Date();
@@ -201,13 +249,34 @@ function RecurringDialogContent({
     }
   }, [recurrenceType, form]);
 
+  // Handle monthly type changes
+  useEffect(() => {
+    if (recurrenceType === 'fixed_monthly') {
+      if (monthlyType === 'day_of_month') {
+        form.setValue('week_of_month', undefined);
+        if (!dayOfMonth) {
+          form.setValue('day_of_month', 1);
+        }
+      } else if (monthlyType === 'week_of_month') {
+        form.setValue('day_of_month', undefined);
+        if (weekOfMonth === undefined) {
+          form.setValue('week_of_month', 1); // First
+        }
+        if (!daysOfWeek?.length) {
+          form.setValue('days_of_week', [0]); // Monday
+        }
+      }
+    }
+  }, [monthlyType, recurrenceType, form, dayOfMonth, weekOfMonth, daysOfWeek]);
+
   const handleSubmit = async (data: FormValues) => {
     setIsSaving(true);
     try {
-      // Destructure to exclude never_end from submitted data
-      const { never_end, ...restData } = data;
+      // Destructure to exclude form-only fields from submitted data
+      const { never_end, monthly_type, ...restData } = data;
 
-      const submitData = {
+      // Clean up fields based on monthly_type
+      const submitData: RecurringSaveData = {
         ...restData,
         start_date: format(data.start_date, 'yyyy-MM-dd'),
         end_date:
@@ -216,6 +285,17 @@ function RecurringDialogContent({
             : format(data.end_date, 'yyyy-MM-dd'),
         next_due_date: format(data.start_date, 'yyyy-MM-dd'),
       };
+
+      // For monthly, only include relevant fields based on monthly_type
+      if (data.recurrence_type === 'fixed_monthly') {
+        if (monthly_type === 'day_of_month') {
+          submitData.week_of_month = undefined;
+          // Keep days_of_week undefined for day_of_month pattern
+          submitData.days_of_week = undefined;
+        } else {
+          submitData.day_of_month = undefined;
+        }
+      }
 
       await onSave(submitData);
       toast.success(
@@ -367,68 +447,179 @@ function RecurringDialogContent({
             )}
 
             {recurrenceType === 'fixed_weekly' && (
-              <div className="space-y-2">
-                <Label>Days of week</Label>
-                <div className="flex flex-wrap gap-2">
-                  {WEEKDAY_NAMES.map((day, index) => {
-                    const isChecked =
-                      form.watch('days_of_week')?.includes(index) || false;
-                    return (
-                      <label
-                        key={day}
-                        className={cn(
-                          'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 transition-colors',
-                          isChecked &&
-                            'bg-primary text-primary-foreground border-primary'
-                        )}
-                      >
-                        <Checkbox
-                          checked={isChecked}
-                          onCheckedChange={(checked) => {
-                            const current = form.watch('days_of_week') || [];
-                            if (checked) {
-                              form.setValue('days_of_week', [
-                                ...current,
-                                index,
-                              ]);
-                            } else {
-                              form.setValue(
-                                'days_of_week',
-                                current.filter((d) => d !== index)
-                              );
-                            }
-                          }}
-                        />
-                        {day}
-                      </label>
-                    );
-                  })}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Every X week(s)</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={form.watch('interval_weeks') || 1}
+                    onChange={(e) =>
+                      form.setValue(
+                        'interval_weeks',
+                        parseInt(e.target.value) || 1
+                      )
+                    }
+                    className="w-24"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>On</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {WEEKDAY_NAMES.map((day, index) => {
+                      const isChecked =
+                        form.watch('days_of_week')?.includes(index) || false;
+                      return (
+                        <label
+                          key={day}
+                          className={cn(
+                            'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 transition-colors',
+                            isChecked &&
+                              'bg-primary text-primary-foreground border-primary'
+                          )}
+                        >
+                          <Checkbox
+                            checked={isChecked}
+                            onCheckedChange={(checked) => {
+                              const current = form.watch('days_of_week') || [];
+                              if (checked) {
+                                form.setValue('days_of_week', [
+                                  ...current,
+                                  index,
+                                ]);
+                              } else {
+                                form.setValue(
+                                  'days_of_week',
+                                  current.filter((d) => d !== index)
+                                );
+                              }
+                            }}
+                          />
+                          {day}
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
 
             {recurrenceType === 'fixed_monthly' && (
-              <div className="space-y-2">
-                <Label>Day of month</Label>
-                <Select
-                  value={form.watch('day_of_month')?.toString() || '1'}
-                  onValueChange={(value) =>
-                    form.setValue('day_of_month', parseInt(value))
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Every X month(s)</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={form.watch('interval_months') || 1}
+                    onChange={(e) =>
+                      form.setValue(
+                        'interval_months',
+                        parseInt(e.target.value) || 1
+                      )
+                    }
+                    className="w-24"
+                  />
+                </div>
+
+                <RadioGroup
+                  value={monthlyType || 'day_of_month'}
+                  onValueChange={(value: string) =>
+                    form.setValue(
+                      'monthly_type',
+                      value as 'day_of_month' | 'week_of_month'
+                    )
                   }
+                  className="space-y-3"
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                      <SelectItem key={day} value={day.toString()}>
-                        {day === 31
-                          ? 'Last day'
-                          : `${day}${getOrdinalSuffix(day)}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {/* Day of month option */}
+                  <div className="flex items-center space-x-3">
+                    <RadioGroupItem value="day_of_month" id="day_of_month" />
+                    <Label
+                      htmlFor="day_of_month"
+                      className="flex items-center gap-2 font-normal"
+                    >
+                      On day
+                      <Select
+                        value={form.watch('day_of_month')?.toString() || '1'}
+                        onValueChange={(value) => {
+                          form.setValue('day_of_month', parseInt(value));
+                          form.setValue('monthly_type', 'day_of_month');
+                        }}
+                        disabled={monthlyType !== 'day_of_month'}
+                      >
+                        <SelectTrigger className="w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 31 }, (_, i) => i + 1).map(
+                            (day) => (
+                              <SelectItem key={day} value={day.toString()}>
+                                {day === 31
+                                  ? 'Last day'
+                                  : `${day}${getOrdinalSuffix(day)}`}
+                              </SelectItem>
+                            )
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </Label>
+                  </div>
+
+                  {/* Week of month option */}
+                  <div className="flex items-center space-x-3">
+                    <RadioGroupItem value="week_of_month" id="week_of_month" />
+                    <Label
+                      htmlFor="week_of_month"
+                      className="flex flex-wrap items-center gap-2 font-normal"
+                    >
+                      On the
+                      <Select
+                        value={form.watch('week_of_month')?.toString() || '1'}
+                        onValueChange={(value) => {
+                          form.setValue('week_of_month', parseInt(value));
+                          form.setValue('monthly_type', 'week_of_month');
+                        }}
+                        disabled={monthlyType !== 'week_of_month'}
+                      >
+                        <SelectTrigger className="w-24">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ORDINAL_OPTIONS.map((opt) => (
+                            <SelectItem
+                              key={opt.value}
+                              value={opt.value.toString()}
+                            >
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={
+                          form.watch('days_of_week')?.[0]?.toString() || '0'
+                        }
+                        onValueChange={(value) => {
+                          form.setValue('days_of_week', [parseInt(value)]);
+                          form.setValue('monthly_type', 'week_of_month');
+                        }}
+                        disabled={monthlyType !== 'week_of_month'}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {WEEKDAY_FULL_NAMES.map((day, index) => (
+                            <SelectItem key={day} value={index.toString()}>
+                              {day}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Label>
+                  </div>
+                </RadioGroup>
               </div>
             )}
 
@@ -482,6 +673,7 @@ function RecurringDialogContent({
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
+                    type="button"
                     variant="outline"
                     className="w-full justify-start text-left font-normal"
                   >
@@ -523,6 +715,7 @@ function RecurringDialogContent({
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
+                      type="button"
                       variant="outline"
                       className="w-full justify-start text-left font-normal"
                     >

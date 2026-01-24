@@ -24,8 +24,11 @@ export const recurringTaskSchema = z.object({
   priority: z.number().int().min(0).max(3),
   recurrence_type: recurrenceTypeSchema,
   interval_days: z.number().int().min(1).nullable(),
+  interval_weeks: z.number().int().min(1).nullable(), // For "every X weeks"
+  interval_months: z.number().int().min(1).nullable(), // For "every X months"
   days_of_week: z.array(z.number().int().min(0).max(6)).nullable(),
   day_of_month: z.number().int().min(1).max(31).nullable(),
+  week_of_month: z.number().int().min(-1).max(5).nullable(), // -1=last, 1-5=nth
   month_of_year: z.number().int().min(1).max(12).nullable(),
   start_date: z.string().date(),
   end_date: z.string().date().nullable(),
@@ -49,8 +52,11 @@ export const createRecurringTaskSchema = z
     priority: z.number().int().min(0).max(3).default(0),
     recurrence_type: recurrenceTypeSchema,
     interval_days: z.number().int().min(1).optional(),
+    interval_weeks: z.number().int().min(1).optional(), // For "every X weeks"
+    interval_months: z.number().int().min(1).optional(), // For "every X months"
     days_of_week: z.array(z.number().int().min(0).max(6)).optional(),
     day_of_month: z.number().int().min(1).max(31).optional(),
+    week_of_month: z.number().int().min(-1).max(5).optional(), // -1=last, 1-5=nth
     month_of_year: z.number().int().min(1).max(12).optional(),
     start_date: z.string().date(),
     end_date: z.string().date().optional(),
@@ -72,7 +78,10 @@ export const createRecurringTaskSchema = z
     }
 
     // Validation: fixed_weekly requires days_of_week
-    if (data.recurrence_type === 'fixed_weekly' && !data.days_of_week) {
+    if (
+      data.recurrence_type === 'fixed_weekly' &&
+      (!data.days_of_week || data.days_of_week.length === 0)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'days_of_week is required for weekly recurrence',
@@ -80,13 +89,32 @@ export const createRecurringTaskSchema = z
       });
     }
 
-    // Validation: fixed_monthly requires day_of_month
-    if (data.recurrence_type === 'fixed_monthly' && !data.day_of_month) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'day_of_month is required for monthly recurrence',
-        path: ['day_of_month'],
-      });
+    // Validation: fixed_monthly requires either day_of_month OR (week_of_month + days_of_week)
+    if (data.recurrence_type === 'fixed_monthly') {
+      const hasWeekOfMonth =
+        data.week_of_month !== undefined && data.week_of_month !== null;
+      const hasDaysOfWeek = data.days_of_week && data.days_of_week.length > 0;
+      const hasDayOfMonth = data.day_of_month !== undefined;
+
+      // Must have either day_of_month OR (week_of_month + days_of_week)
+      if (hasWeekOfMonth) {
+        // Using Nth weekday pattern - needs days_of_week
+        if (!hasDaysOfWeek) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'days_of_week is required when using week_of_month',
+            path: ['days_of_week'],
+          });
+        }
+      } else if (!hasDayOfMonth) {
+        // Not using week_of_month, so need day_of_month
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            'Either day_of_month or week_of_month is required for monthly recurrence',
+          path: ['day_of_month'],
+        });
+      }
     }
 
     // Validation: fixed_yearly requires month_of_year and day_of_month
@@ -129,8 +157,11 @@ export const updateRecurringTaskSchema = z
     priority: z.number().int().min(0).max(3).optional(),
     recurrence_type: recurrenceTypeSchema.optional(),
     interval_days: z.number().int().min(1).optional(),
+    interval_weeks: z.number().int().min(1).optional(),
+    interval_months: z.number().int().min(1).optional(),
     days_of_week: z.array(z.number().int().min(0).max(6)).optional(),
     day_of_month: z.number().int().min(1).max(31).optional(),
+    week_of_month: z.number().int().min(-1).max(5).optional(),
     month_of_year: z.number().int().min(1).max(12).optional(),
     start_date: z.string().date().optional(),
     end_date: z.string().date().optional(),
