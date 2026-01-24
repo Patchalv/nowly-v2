@@ -57,6 +57,9 @@ export function ContextualTooltip({
     useOnboarding();
   const driverRef = useRef<Driver | null>(null);
   const hasShownRef = useRef(false);
+  // Track if tour was ever active during this component's lifetime
+  // This prevents tooltips from showing immediately after tour completion
+  const tourWasActiveRef = useRef(shouldShowTour);
 
   /**
    * Handle tooltip dismissal.
@@ -76,6 +79,13 @@ export function ContextualTooltip({
     }
   }, [tooltipType, dismissTooltip]);
 
+  // Keep track of whether tour was active at any point
+  useEffect(() => {
+    if (shouldShowTour) {
+      tourWasActiveRef.current = true;
+    }
+  }, [shouldShowTour]);
+
   useEffect(() => {
     // Don't show if still loading, not enabled, or already shown in this mount
     if (isLoading || !enabled || hasShownRef.current) {
@@ -85,6 +95,12 @@ export function ContextualTooltip({
     // Don't show contextual tooltips until the initial tour is completed
     // This prevents tooltips from appearing before/during the onboarding tour
     if (shouldShowTour) {
+      return;
+    }
+
+    // Don't show if tour was active at any point during this session
+    // This prevents tooltips from appearing immediately after tour completion
+    if (tourWasActiveRef.current) {
       return;
     }
 
