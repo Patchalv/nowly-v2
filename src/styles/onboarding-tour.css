@@ -5,15 +5,15 @@
 
 /* Popover container */
 .driver-popover {
-  background: var(--popover);
-  color: var(--popover-foreground);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: var(--popover, hsl(0 0% 100%)) !important;
+  color: var(--popover-foreground, hsl(240 10% 3.9%)) !important;
+  border: 1px solid var(--border, hsl(240 5.9% 90%)) !important;
+  border-radius: var(--radius, 0.5rem) !important;
   box-shadow:
     0 10px 15px -3px rgb(0 0 0 / 0.1),
-    0 4px 6px -4px rgb(0 0 0 / 0.1);
-  padding: 1rem;
-  max-width: 320px;
+    0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+  padding: 1rem !important;
+  max-width: 320px !important;
 }
 
 /* Mobile responsiveness */
@@ -44,21 +44,23 @@
 
 /* Title */
 .driver-popover-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--foreground);
-  margin: 0;
-  padding: 0;
-  line-height: 1.5;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  /* Use fallback color in case CSS variable is not available */
+  color: var(--foreground, hsl(240 10% 3.9%)) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  padding-right: 1.5rem !important; /* Space for close button */
+  line-height: 1.5 !important;
 }
 
 /* Description */
 .driver-popover-description {
-  font-size: 0.875rem;
-  color: var(--muted-foreground);
-  margin-top: 0.5rem;
-  line-height: 1.6;
-  white-space: pre-line;
+  font-size: 0.875rem !important;
+  color: var(--muted-foreground, hsl(240 3.8% 46.1%)) !important;
+  margin-top: 0.5rem !important;
+  line-height: 1.6 !important;
+  white-space: pre-line !important;
 }
 
 /* Footer (contains buttons and progress) */
@@ -134,27 +136,32 @@
   top: 0.5rem;
   right: 0.5rem;
   background: transparent;
-  color: var(--muted-foreground);
+  color: var(--muted-foreground, hsl(240 3.8% 46.1%));
   padding: 0.25rem;
   height: 1.75rem;
   width: 1.75rem;
-  border-radius: calc(var(--radius) - 2px);
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  /* Hide all original button content */
+  font-size: 0 !important;
+  line-height: 0;
+}
+
+/* Hide any child elements inside close button (SVGs, spans, etc.) */
+.driver-popover-close-btn * {
+  display: none !important;
 }
 
 .driver-popover-close-btn:hover {
-  background: var(--accent);
-  color: var(--foreground);
+  background: var(--accent, hsl(240 4.8% 95.9%));
+  color: var(--foreground, hsl(240 10% 3.9%));
 }
 
-/* Hide default close button text, use X icon */
-.driver-popover-close-btn {
-  font-size: 0;
-}
-
+/* Custom X icon via ::after pseudo-element */
 .driver-popover-close-btn::after {
   content: '\00D7';
-  font-size: 1.25rem;
+  font-size: 1.25rem !important;
   line-height: 1;
+  display: block;
 }
 
 /* Overlay */

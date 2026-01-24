@@ -53,7 +53,8 @@ export function ContextualTooltip({
   enabled = true,
   delay = DEFAULT_TOOLTIP_DELAY,
 }: ContextualTooltipProps) {
-  const { hasSeenTooltip, dismissTooltip, isLoading } = useOnboarding();
+  const { hasSeenTooltip, dismissTooltip, isLoading, shouldShowTour } =
+    useOnboarding();
   const driverRef = useRef<Driver | null>(null);
   const hasShownRef = useRef(false);
 
@@ -78,6 +79,12 @@ export function ContextualTooltip({
   useEffect(() => {
     // Don't show if still loading, not enabled, or already shown in this mount
     if (isLoading || !enabled || hasShownRef.current) {
+      return;
+    }
+
+    // Don't show contextual tooltips until the initial tour is completed
+    // This prevents tooltips from appearing before/during the onboarding tour
+    if (shouldShowTour) {
       return;
     }
 
@@ -149,6 +156,7 @@ export function ContextualTooltip({
   }, [
     isLoading,
     enabled,
+    shouldShowTour,
     tooltipType,
     element,
     title,
