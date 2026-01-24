@@ -10,13 +10,25 @@ import {
   subWeeks,
 } from 'date-fns';
 import { useTasksForDateRange } from '@/hooks/useTasks';
+import { useToggleTaskComplete } from '@/hooks/useToggleTaskComplete';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import { useUIStore } from '@/stores/ui-store';
 import { WeekNavigation } from '@/components/features/weekly/WeekNavigation';
+import { WeekGrid } from '@/components/features/weekly/WeekGrid';
+import { TaskDialog } from '@/components/features/tasks/TaskDialog';
+import type { Task, Category } from '@/types/supabase';
+
+interface TaskWithRelations extends Task {
+  category?: Category | null;
+}
 
 export default function WeeklyPage() {
   const [selectedWeekStart, setSelectedWeekStart] =
     useState<Date>(startOfToday());
+  const [selectedTask, setSelectedTask] = useState<TaskWithRelations | null>(
+    null
+  );
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Zustand stores
   const { showWeekend, setShowWeekend } = useUIStore();
@@ -36,8 +48,7 @@ export default function WeeklyPage() {
   const {
     data: weekTasks,
     isLoading,
-    isError,
-    error,
+    refetch,
   } = useTasksForDateRange(
     weekBoundaries.start,
     weekBoundaries.end,
@@ -49,6 +60,54 @@ export default function WeeklyPage() {
     if (!weekTasks) return [];
     return weekTasks.filter((task) => !task.is_completed);
   }, [weekTasks]);
+
+  // Local state for optimistic updates
+  const [optimisticTasks, setOptimisticTasks] = useState<
+    TaskWithRelations[] | undefined
+  >(undefined);
+
+  // Use optimistic tasks if available, otherwise use filtered tasks
+  const displayTasks = optimisticTasks ?? incompleteTasks;
+
+  // Toggle task completion mutation
+  const toggleComplete = useToggleTaskComplete();
+
+  const handleToggleComplete = (task: TaskWithRelations) => {
+    // Immediately update UI optimistically
+    setOptimisticTasks((current) => {
+      const tasksToUpdate = current ?? incompleteTasks;
+      if (!tasksToUpdate) return current;
+
+      return tasksToUpdate.map((t) =>
+        t.id === task.id
+          ? {
+              ...t,
+              is_completed: !t.is_completed,
+              completed_at: !t.is_completed ? new Date().toISOString() : null,
+            }
+          : t
+      );
+    });
+
+    // Then trigger the actual mutation
+    toggleComplete.mutate(task, {
+      onSuccess: () => {
+        // Clear optimistic state and refetch to get real data
+        refetch().then(() => {
+          setOptimisticTasks(undefined);
+        });
+      },
+      onError: () => {
+        // Revert optimistic update on error
+        setOptimisticTasks(undefined);
+      },
+    });
+  };
+
+  const handleTaskClick = (task: TaskWithRelations) => {
+    setSelectedTask(task);
+    setIsDialogOpen(true);
+  };
 
   // Navigation handlers
   const handlePreviousWeek = () => {
@@ -88,37 +147,37 @@ export default function WeeklyPage() {
         />
       </div>
 
-      {/* Content placeholder - will be replaced with WeekGrid/DayCarousel in Phase 3 */}
-      <div className="bg-card min-h-0 flex-1 rounded-lg border p-4">
-        <div className="text-muted-foreground space-y-2 text-sm">
-          <p>
-            <strong>Phase 2 Complete - Navigation Wired Up</strong>
-          </p>
-          <p>
-            Week: {weekBoundaries.start} to {weekBoundaries.end}
-          </p>
-          <p>Show Weekend: {showWeekend ? 'Yes' : 'No'}</p>
-          <p>Workspace: {selectedWorkspaceId || 'Master (all)'}</p>
-          <p>Loading: {isLoading ? 'Yes' : 'No'}</p>
-          {isError && (
-            <p className="text-destructive">Error: {error?.message}</p>
-          )}
-          <p>Tasks fetched: {incompleteTasks.length}</p>
+      {/* Desktop: Week Grid */}
+      <div className="hidden min-h-0 flex-1 md:block">
+        <WeekGrid
+          weekStart={selectedWeekStart}
+          tasks={displayTasks}
+          showWeekend={showWeekend}
+          isLoading={isLoading}
+          onToggleComplete={handleToggleComplete}
+          onTaskClick={handleTaskClick}
+          workspaceId={selectedWorkspaceId}
+        />
+      </div>
 
-          {incompleteTasks.length > 0 && (
-            <ul className="mt-4 list-inside list-disc">
-              {incompleteTasks.slice(0, 5).map((task) => (
-                <li key={task.id}>
-                  {task.title} - {task.scheduled_date}
-                </li>
-              ))}
-              {incompleteTasks.length > 5 && (
-                <li>...and {incompleteTasks.length - 5} more</li>
-              )}
-            </ul>
-          )}
+      {/* Mobile: Placeholder for DayCarousel (Phase 4) */}
+      <div className="bg-card min-h-0 flex-1 rounded-lg border p-4 md:hidden">
+        <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
+          <p>Mobile carousel coming in Phase 4</p>
         </div>
       </div>
+
+      {/* Task Dialog */}
+      <TaskDialog
+        task={selectedTask}
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setSelectedTask(null);
+          }
+        }}
+      />
     </div>
   );
 }
