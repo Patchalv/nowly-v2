@@ -36,8 +36,7 @@ export default function AllTasksPage() {
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // Clients and stores
-  const supabase = createClient();
+  // Stores
   const { selectedWorkspaceId } = useWorkspaceStore();
 
   // Refs
@@ -47,6 +46,7 @@ export default function AllTasksPage() {
 
   // Get current user
   useEffect(() => {
+    const supabase = createClient();
     const getUser = async () => {
       const {
         data: { user },
@@ -56,7 +56,7 @@ export default function AllTasksPage() {
       }
     };
     getUser();
-  }, [supabase]);
+  }, []);
 
   // Fetch user's workspaces
   const { data: workspaces, isLoading: workspacesLoading } = useWorkspaces();

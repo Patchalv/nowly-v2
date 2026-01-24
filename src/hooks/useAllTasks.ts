@@ -67,7 +67,9 @@ export function useAllTasks({
 
       // Apply search filter if specified (min 2 characters)
       if (searchQuery && searchQuery.length >= 2) {
-        query = query.ilike('title', `%${searchQuery}%`);
+        // Escape SQL LIKE wildcards to treat them as literal characters
+        const escapedSearch = searchQuery.replace(/[%_\\]/g, '\\$&');
+        query = query.ilike('title', `%${escapedSearch}%`);
       }
 
       // Apply sorting with sub-ordering
