@@ -89,8 +89,11 @@ export type Database = {
           end_date: string | null;
           id: string;
           interval_days: number | null;
+          interval_months: number | null;
+          interval_weeks: number | null;
           is_active: boolean | null;
           is_paused: boolean | null;
+          month_of_year: number | null;
           next_due_date: string;
           occurrences_generated: number | null;
           priority: number | null;
@@ -99,6 +102,7 @@ export type Database = {
           title: string;
           updated_at: string | null;
           user_id: string;
+          week_of_month: number | null;
           workspace_id: string;
         };
         Insert: {
@@ -110,8 +114,11 @@ export type Database = {
           end_date?: string | null;
           id?: string;
           interval_days?: number | null;
+          interval_months?: number | null;
+          interval_weeks?: number | null;
           is_active?: boolean | null;
           is_paused?: boolean | null;
+          month_of_year?: number | null;
           next_due_date: string;
           occurrences_generated?: number | null;
           priority?: number | null;
@@ -120,6 +127,7 @@ export type Database = {
           title: string;
           updated_at?: string | null;
           user_id: string;
+          week_of_month?: number | null;
           workspace_id: string;
         };
         Update: {
@@ -131,8 +139,11 @@ export type Database = {
           end_date?: string | null;
           id?: string;
           interval_days?: number | null;
+          interval_months?: number | null;
+          interval_weeks?: number | null;
           is_active?: boolean | null;
           is_paused?: boolean | null;
+          month_of_year?: number | null;
           next_due_date?: string;
           occurrences_generated?: number | null;
           priority?: number | null;
@@ -141,6 +152,7 @@ export type Database = {
           title?: string;
           updated_at?: string | null;
           user_id?: string;
+          week_of_month?: number | null;
           workspace_id?: string;
         };
         Relationships: [
@@ -248,6 +260,39 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
+      };
+      user_onboarding: {
+        Row: {
+          created_at: string | null;
+          dismissed_tooltips: string[] | null;
+          id: string;
+          initial_tour_completed: boolean | null;
+          initial_tour_completed_at: string | null;
+          initial_tour_step_reached: number | null;
+          updated_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          dismissed_tooltips?: string[] | null;
+          id?: string;
+          initial_tour_completed?: boolean | null;
+          initial_tour_completed_at?: string | null;
+          initial_tour_step_reached?: number | null;
+          updated_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          dismissed_tooltips?: string[] | null;
+          id?: string;
+          initial_tour_completed?: boolean | null;
+          initial_tour_completed_at?: string | null;
+          initial_tour_step_reached?: number | null;
+          updated_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
       };
       workspaces: {
         Row: {
