@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Search,
   X,
@@ -9,6 +9,7 @@ import {
   ArrowUpAZ,
   ArrowDownZA,
   ChevronDown,
+  Check,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 import type { SortOption } from '@/hooks/useAllTasks';
 
 interface CategoryWithWorkspace {
@@ -50,7 +51,8 @@ interface TaskFiltersProps {
   onSortChange: (sort: SortOption) => void;
   categories: CategoryWithWorkspace[] | undefined;
   onClearFilters: () => void;
-  isLoading?: boolean;
+  /** Only affects category/sort filters, not the search input */
+  isInitialLoading?: boolean;
 }
 
 const SORT_OPTIONS: {
@@ -81,17 +83,21 @@ export function TaskFilters({
   onSortChange,
   categories,
   onClearFilters,
-  isLoading = false,
+  isInitialLoading = false,
 }: TaskFiltersProps) {
   // Local state for debounced search
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const [categoryPopoverOpen, setCategoryPopoverOpen] = useState(false);
+
+  // Track if we initiated the change to avoid sync loops
+  const isInternalChange = useRef(false);
 
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
       // Only trigger search if at least 2 characters or empty
       if (localSearch.length >= 2 || localSearch.length === 0) {
+        isInternalChange.current = true;
         onSearchChange(localSearch);
       }
     }, 300);
@@ -99,10 +105,20 @@ export function TaskFilters({
     return () => clearTimeout(timer);
   }, [localSearch, onSearchChange]);
 
-  // Sync local search with prop when it changes externally (e.g., clear filters)
+  // Sync local search with prop only when it changes externally (e.g., clear filters)
   useEffect(() => {
-    setLocalSearch(searchQuery);
-  }, [searchQuery]);
+    if (isInternalChange.current) {
+      // This change was from our debounce, ignore it
+      isInternalChange.current = false;
+      return;
+    }
+    // External change (e.g., clear filters button)
+    if (searchQuery !== localSearch) {
+      /* eslint-disable react-hooks/set-state-in-effect */
+      setLocalSearch(searchQuery);
+      /* eslint-enable react-hooks/set-state-in-effect */
+    }
+  }, [searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCategoryToggle = useCallback(
     (categoryId: string) => {
@@ -161,7 +177,6 @@ export function TaskFilters({
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
             className="pr-9 pl-9"
-            disabled={isLoading}
             aria-label="Search tasks"
             aria-describedby={
               localSearch.length === 1 ? 'search-hint' : undefined
@@ -215,7 +230,9 @@ export function TaskFilters({
             <Button
               variant="outline"
               className="h-9 justify-start"
-              disabled={isLoading || !categories || categories.length === 0}
+              disabled={
+                isInitialLoading || !categories || categories.length === 0
+              }
               aria-label={`Filter by category: ${selectedCategories.length === 0 ? 'All categories' : `${selectedCategories.length} selected`}`}
               aria-expanded={categoryPopoverOpen}
               aria-haspopup="listbox"
@@ -261,40 +278,47 @@ export function TaskFilters({
                             {workspaceName}
                           </div>
                         )}
-                        {workspaceCategories.map((category) => (
-                          <button
-                            key={category.id}
-                            type="button"
-                            role="option"
-                            aria-selected={selectedCategories.includes(
-                              category.id
-                            )}
-                            onClick={() => handleCategoryToggle(category.id)}
-                            className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
-                          >
-                            <Checkbox
-                              checked={selectedCategories.includes(category.id)}
-                              onCheckedChange={() =>
-                                handleCategoryToggle(category.id)
-                              }
-                              aria-hidden="true"
-                              tabIndex={-1}
-                            />
-                            {category.color && (
+                        {workspaceCategories.map((category) => {
+                          const isSelected = selectedCategories.includes(
+                            category.id
+                          );
+                          return (
+                            <button
+                              key={category.id}
+                              type="button"
+                              role="option"
+                              aria-selected={isSelected}
+                              onClick={() => handleCategoryToggle(category.id)}
+                              className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
+                            >
+                              {/* Custom checkbox visual to avoid button nesting */}
                               <div
-                                className="h-3 w-3 shrink-0 rounded-full"
-                                style={{ backgroundColor: category.color }}
+                                className={cn(
+                                  'flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border shadow-xs',
+                                  isSelected
+                                    ? 'border-primary bg-primary text-primary-foreground'
+                                    : 'border-input bg-transparent'
+                                )}
                                 aria-hidden="true"
-                              />
-                            )}
-                            {category.icon && (
-                              <span className="shrink-0" aria-hidden="true">
-                                {category.icon}
-                              </span>
-                            )}
-                            <span className="truncate">{category.name}</span>
-                          </button>
-                        ))}
+                              >
+                                {isSelected && <Check className="h-3 w-3" />}
+                              </div>
+                              {category.color && (
+                                <div
+                                  className="h-3 w-3 shrink-0 rounded-full"
+                                  style={{ backgroundColor: category.color }}
+                                  aria-hidden="true"
+                                />
+                              )}
+                              {category.icon && (
+                                <span className="shrink-0" aria-hidden="true">
+                                  {category.icon}
+                                </span>
+                              )}
+                              <span className="truncate">{category.name}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )
                   )}
@@ -312,7 +336,7 @@ export function TaskFilters({
         <Select
           value={sortBy}
           onValueChange={(value) => onSortChange(value as SortOption)}
-          disabled={isLoading}
+          disabled={isInitialLoading}
         >
           <SelectTrigger className="w-auto">
             <span className="text-muted-foreground mr-1">Sort:</span>

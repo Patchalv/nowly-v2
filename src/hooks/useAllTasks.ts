@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import type { Task, Category } from '@/types/supabase';
 
@@ -117,5 +117,7 @@ export function useAllTasks({
     },
     getNextPageParam: (lastPage) => lastPage.nextPage,
     initialPageParam: 0,
+    // Keep previous data visible while fetching new data (prevents isLoading flash on filter changes)
+    placeholderData: keepPreviousData,
   });
 }

@@ -229,7 +229,7 @@ export default function AllTasksPage() {
           onSortChange={setSortBy}
           categories={categories ?? undefined}
           onClearFilters={handleClearFilters}
-          isLoading={isLoading}
+          isInitialLoading={workspacesLoading}
         />
       </div>
 
