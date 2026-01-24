@@ -128,9 +128,9 @@ BEGIN
                 -- Safety: don't go beyond current month
                 IF temp_date >= first_of_month + INTERVAL '1 month' THEN
                   -- Target week doesn't exist (e.g., 5th Monday doesn't exist)
-                  -- Fall back to last occurrence
+                  -- Fall back to last occurrence with bounded loop (max 31 days in a month)
                   temp_date := (first_of_month + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
-                  LOOP
+                  FOR i IN 1..31 LOOP
                     adjusted_dow := CASE EXTRACT(DOW FROM temp_date)::INTEGER
                       WHEN 0 THEN 6
                       ELSE EXTRACT(DOW FROM temp_date)::INTEGER - 1
@@ -140,6 +140,11 @@ BEGIN
                       EXIT;
                     END IF;
                     temp_date := temp_date - 1;
+                    -- Safety: don't go before first of month
+                    IF temp_date < first_of_month THEN
+                      next_date := first_of_month;
+                      EXIT;
+                    END IF;
                   END LOOP;
                   EXIT;
                 END IF;
@@ -151,7 +156,11 @@ BEGIN
               -- Last day of month
               next_date := (first_of_month + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
             ELSE
-              next_date := (first_of_month + (COALESCE(template.day_of_month, 1) - 1 || ' days')::INTERVAL)::DATE;
+              -- Clamp day_of_month to last day of month to handle short months (e.g., Feb 30 -> Feb 28)
+              next_date := LEAST(
+                (first_of_month + (COALESCE(template.day_of_month, 1) - 1 || ' days')::INTERVAL)::DATE,
+                (first_of_month + INTERVAL '1 month' - INTERVAL '1 day')::DATE
+              );
             END IF;
           END IF;
 
@@ -164,9 +173,12 @@ BEGIN
             next_date := (DATE_TRUNC('year', next_date) + ((template.month_of_year - 1) || ' months')::INTERVAL)::DATE;
           END IF;
 
-          -- Apply specific day if set
+          -- Apply specific day if set, clamped to last day of month (e.g., Feb 30 -> Feb 28)
           IF template.day_of_month IS NOT NULL THEN
-            next_date := (DATE_TRUNC('month', next_date) + ((template.day_of_month - 1) || ' days')::INTERVAL)::DATE;
+            next_date := LEAST(
+              (DATE_TRUNC('month', next_date) + ((template.day_of_month - 1) || ' days')::INTERVAL)::DATE,
+              (DATE_TRUNC('month', next_date) + INTERVAL '1 month' - INTERVAL '1 day')::DATE
+            );
           END IF;
 
         ELSE

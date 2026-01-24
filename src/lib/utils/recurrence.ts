@@ -274,6 +274,11 @@ function findNthWeekdayOfMonth(
   }
 
   // If nth doesn't exist (e.g., 5th Monday), return last occurrence
+  // Guard against infinite recursion if dayOfWeek is invalid
+  if (nth === -1) {
+    // Already searching for last - dayOfWeek doesn't exist in this month
+    return null;
+  }
   return findNthWeekdayOfMonth(year, month, dayOfWeek, -1);
 }
 

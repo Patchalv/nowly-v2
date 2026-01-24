@@ -217,6 +217,10 @@ function RecurringDialogContent({
   const recurrenceType = form.watch('recurrence_type');
   const neverEnd = form.watch('never_end');
   const monthlyType = form.watch('monthly_type');
+  // Watch these values for reactivity in useEffect
+  const dayOfMonth = form.watch('day_of_month');
+  const weekOfMonth = form.watch('week_of_month');
+  const daysOfWeek = form.watch('days_of_week');
 
   // Reset conditional fields when recurrence type changes
   useEffect(() => {
@@ -250,20 +254,20 @@ function RecurringDialogContent({
     if (recurrenceType === 'fixed_monthly') {
       if (monthlyType === 'day_of_month') {
         form.setValue('week_of_month', undefined);
-        if (!form.watch('day_of_month')) {
+        if (!dayOfMonth) {
           form.setValue('day_of_month', 1);
         }
       } else if (monthlyType === 'week_of_month') {
         form.setValue('day_of_month', undefined);
-        if (form.watch('week_of_month') === undefined) {
+        if (weekOfMonth === undefined) {
           form.setValue('week_of_month', 1); // First
         }
-        if (!form.watch('days_of_week')?.length) {
+        if (!daysOfWeek?.length) {
           form.setValue('days_of_week', [0]); // Monday
         }
       }
     }
-  }, [monthlyType, recurrenceType, form]);
+  }, [monthlyType, recurrenceType, form, dayOfMonth, weekOfMonth, daysOfWeek]);
 
   const handleSubmit = async (data: FormValues) => {
     setIsSaving(true);
