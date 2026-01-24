@@ -98,6 +98,7 @@ export default function AllTasksPage() {
   const {
     data: tasksData,
     isLoading: tasksLoading,
+    isFetching,
     isError,
     error,
     fetchNextPage,
@@ -237,8 +238,29 @@ export default function AllTasksPage() {
         <QuickAddBacklog workspaceId={selectedWorkspaceId} />
       </div>
 
+      {/* Results count and refetching indicator */}
+      {!isLoading && !isError && tasks.length > 0 && (
+        <div className="mb-4 flex items-center justify-between">
+          <p
+            className="text-muted-foreground text-sm"
+            role="status"
+            aria-live="polite"
+          >
+            {tasks.length} task{tasks.length !== 1 ? 's' : ''}
+            {hasNextPage && '+'}
+            {hasActiveFilters && ' matching filters'}
+          </p>
+          {isFetching && !isFetchingNextPage && (
+            <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+              <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Updating...
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Task List */}
-      <div className="space-y-2">
+      <div className="space-y-2" role="list" aria-label="Tasks">
         {/* Loading state - initial load */}
         {isLoading && tasks.length === 0 && (
           <div className="space-y-2">
@@ -311,19 +333,27 @@ export default function AllTasksPage() {
         {/* Tasks */}
         {!isError &&
           tasks.map((task) => (
-            <TaskItem
-              key={task.id}
-              task={task}
-              onToggleComplete={handleToggleComplete}
-              onTaskClick={handleTaskClick}
-            />
+            <div key={task.id} role="listitem">
+              <TaskItem
+                task={task}
+                onToggleComplete={handleToggleComplete}
+                onTaskClick={handleTaskClick}
+              />
+            </div>
           ))}
 
         {/* Loading more indicator */}
         {isFetchingNextPage && (
-          <div className="flex justify-center py-4">
+          <div
+            className="flex justify-center py-4"
+            role="status"
+            aria-live="polite"
+          >
             <div className="text-muted-foreground flex items-center gap-2 text-sm">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              <div
+                className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+                aria-hidden="true"
+              />
               Loading more...
             </div>
           </div>

@@ -9,7 +9,6 @@ import {
   ArrowUpAZ,
   ArrowDownZA,
   ChevronDown,
-  Check,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -27,7 +26,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { cn } from '@/lib/utils';
 import type { SortOption } from '@/hooks/useAllTasks';
 
 interface CategoryWithWorkspace {
@@ -153,20 +151,28 @@ export function TaskFilters({
       <div className="flex gap-2">
         {/* Search Input */}
         <div className="relative flex-1">
-          <Search className="text-muted-foreground absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2" />
+          <Search
+            className="text-muted-foreground absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2"
+            aria-hidden="true"
+          />
           <Input
-            type="text"
+            type="search"
             placeholder="Search tasks..."
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
             className="pr-9 pl-9"
             disabled={isLoading}
+            aria-label="Search tasks"
+            aria-describedby={
+              localSearch.length === 1 ? 'search-hint' : undefined
+            }
           />
           {localSearch && (
             <button
               type="button"
               onClick={() => setLocalSearch('')}
               className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2.5 -translate-y-1/2"
+              aria-label="Clear search"
             >
               <X className="h-4 w-4" />
             </button>
@@ -179,8 +185,9 @@ export function TaskFilters({
             variant="outline"
             onClick={onClearFilters}
             className="shrink-0"
+            aria-label="Clear all filters"
           >
-            <X className="mr-1 h-4 w-4" />
+            <X className="mr-1 h-4 w-4" aria-hidden="true" />
             Clear
           </Button>
         )}
@@ -188,7 +195,11 @@ export function TaskFilters({
 
       {/* Search hint */}
       {localSearch.length === 1 && (
-        <p className="text-muted-foreground text-xs">
+        <p
+          id="search-hint"
+          className="text-muted-foreground text-xs"
+          role="status"
+        >
           Type at least 2 characters to search
         </p>
       )}
@@ -205,6 +216,9 @@ export function TaskFilters({
               variant="outline"
               className="h-9 justify-start"
               disabled={isLoading || !categories || categories.length === 0}
+              aria-label={`Filter by category: ${selectedCategories.length === 0 ? 'All categories' : `${selectedCategories.length} selected`}`}
+              aria-expanded={categoryPopoverOpen}
+              aria-haspopup="listbox"
             >
               <span className="text-muted-foreground mr-1">Categories:</span>
               {selectedCategories.length === 0 ? (
@@ -212,7 +226,7 @@ export function TaskFilters({
               ) : (
                 <span>{selectedCategories.length} selected</span>
               )}
-              <ChevronDown className="ml-1 h-4 w-4" />
+              <ChevronDown className="ml-1 h-4 w-4" aria-hidden="true" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-64 p-0" align="start">
@@ -228,11 +242,20 @@ export function TaskFilters({
                   Clear selection
                 </Button>
               )}
-              <div className="max-h-64 overflow-y-auto">
+              <div
+                className="max-h-64 overflow-y-auto"
+                role="listbox"
+                aria-label="Categories"
+              >
                 {categoriesByWorkspace &&
                   Object.entries(categoriesByWorkspace).map(
                     ([workspaceName, workspaceCategories]) => (
-                      <div key={workspaceName} className="mb-2">
+                      <div
+                        key={workspaceName}
+                        className="mb-2"
+                        role="group"
+                        aria-label={workspaceName}
+                      >
                         {Object.keys(categoriesByWorkspace).length > 1 && (
                           <div className="text-muted-foreground mb-1 px-2 text-xs font-medium">
                             {workspaceName}
@@ -242,6 +265,10 @@ export function TaskFilters({
                           <button
                             key={category.id}
                             type="button"
+                            role="option"
+                            aria-selected={selectedCategories.includes(
+                              category.id
+                            )}
                             onClick={() => handleCategoryToggle(category.id)}
                             className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
                           >
@@ -250,15 +277,20 @@ export function TaskFilters({
                               onCheckedChange={() =>
                                 handleCategoryToggle(category.id)
                               }
+                              aria-hidden="true"
+                              tabIndex={-1}
                             />
                             {category.color && (
                               <div
                                 className="h-3 w-3 shrink-0 rounded-full"
                                 style={{ backgroundColor: category.color }}
+                                aria-hidden="true"
                               />
                             )}
                             {category.icon && (
-                              <span className="shrink-0">{category.icon}</span>
+                              <span className="shrink-0" aria-hidden="true">
+                                {category.icon}
+                              </span>
                             )}
                             <span className="truncate">{category.name}</span>
                           </button>
@@ -301,7 +333,11 @@ export function TaskFilters({
 
       {/* Selected Categories Badges */}
       {selectedCategoryNames && selectedCategoryNames.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div
+          className="flex flex-wrap gap-1"
+          role="list"
+          aria-label="Selected category filters"
+        >
           {categories
             ?.filter((c) => selectedCategories.includes(c.id))
             .map((category) => (
@@ -317,15 +353,19 @@ export function TaskFilters({
                       }
                     : undefined
                 }
+                role="listitem"
               >
-                {category.icon && <span>{category.icon}</span>}
+                {category.icon && (
+                  <span aria-hidden="true">{category.icon}</span>
+                )}
                 {category.name}
                 <button
                   type="button"
                   onClick={() => handleCategoryToggle(category.id)}
                   className="hover:bg-foreground/10 ml-0.5 rounded-full p-0.5"
+                  aria-label={`Remove ${category.name} filter`}
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-3 w-3" aria-hidden="true" />
                 </button>
               </Badge>
             ))}
