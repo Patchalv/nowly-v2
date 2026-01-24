@@ -31,10 +31,25 @@ import { toast } from 'sonner';
 import type { Workspace, Category } from '@/types/supabase';
 import { ReplayTourButton } from '@/components/features/onboarding';
 
+/**
+ * Check if running on localhost (development environment).
+ */
+function isLocalhost(): boolean {
+  if (typeof window === 'undefined') return false;
+  const hostname = window.location.hostname;
+  return hostname === 'localhost' || hostname === '127.0.0.1';
+}
+
 export default function AccountPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [fullName, setFullName] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [showDevTools, setShowDevTools] = useState(false);
+
+  // Check if we're on localhost for dev-only features
+  useEffect(() => {
+    setShowDevTools(isLocalhost());
+  }, []);
 
   // Workspace dialog state
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
@@ -233,17 +248,24 @@ export default function AccountPage() {
         </div>
       </Card>
 
-      {/* Onboarding Section */}
-      <Card className="mb-6 p-6">
-        <h2 className="mb-4 text-xl font-semibold">Onboarding</h2>
-        <div className="space-y-4">
-          <p className="text-muted-foreground text-sm">
-            Replay the introductory tour to refresh your knowledge of
-            Nowly&apos;s features.
-          </p>
-          <ReplayTourButton />
-        </div>
-      </Card>
+      {/* Onboarding Section - Dev only (localhost) */}
+      {showDevTools && (
+        <Card className="mb-6 p-6">
+          <div className="mb-2 flex items-center gap-2">
+            <h2 className="text-xl font-semibold">Onboarding</h2>
+            <span className="rounded bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+              Dev Only
+            </span>
+          </div>
+          <div className="space-y-4">
+            <p className="text-muted-foreground text-sm">
+              Replay the introductory tour to refresh your knowledge of
+              Nowly&apos;s features.
+            </p>
+            <ReplayTourButton />
+          </div>
+        </Card>
+      )}
 
       {/* Logout Button */}
       <div className="mb-6">
