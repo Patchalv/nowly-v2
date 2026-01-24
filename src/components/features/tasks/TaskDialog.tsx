@@ -44,6 +44,8 @@ import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useCategories } from '@/hooks/useCategories';
 import { toast } from 'sonner';
 import type { Task, Category } from '@/types/supabase';
+import { ContextualTooltip } from '@/components/features/onboarding';
+import { TooltipType } from '@/hooks/useOnboarding';
 
 interface TaskWithRelations extends Task {
   category?: Category | null;
@@ -230,7 +232,7 @@ function TaskDialogContent({
           {/* Dates */}
           <div className="grid grid-cols-2 gap-4">
             {/* Scheduled Date */}
-            <div className="space-y-2">
+            <div className="space-y-2" data-scheduled-date-field>
               <Label>Scheduled Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -313,6 +315,16 @@ function TaskDialogContent({
             </Button>
           </div>
         </DialogFooter>
+        {/* Contextual tooltip for scheduled vs due dates */}
+        <ContextualTooltip
+          tooltipType={TooltipType.TASK_DIALOG_SCHEDULED_DUE}
+          element="[data-scheduled-date-field]"
+          title="Scheduled vs Due Dates"
+          description="SCHEDULED = When you'll work on this task&#10;DUE = Hard deadline&#10;&#10;Set both for deadline-driven work, or just scheduled for open-ended tasks."
+          side="right"
+          enabled={true}
+          delay={1000}
+        />
       </DialogContent>
 
       {/* Delete Confirmation Dialog */}
