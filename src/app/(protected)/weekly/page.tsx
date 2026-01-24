@@ -12,7 +12,7 @@ import {
 import { useTasksForDateRange } from '@/hooks/useTasks';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import { useUIStore } from '@/stores/ui-store';
-import { getWeekLabel } from '@/lib/week-utils';
+import { WeekNavigation } from '@/components/features/weekly/WeekNavigation';
 
 export default function WeeklyPage() {
   const [selectedWeekStart, setSelectedWeekStart] =
@@ -50,58 +50,49 @@ export default function WeeklyPage() {
     return weekTasks.filter((task) => !task.is_completed);
   }, [weekTasks]);
 
+  // Navigation handlers
+  const handlePreviousWeek = () => {
+    setSelectedWeekStart((prev) => subWeeks(prev, 1));
+  };
+
+  const handleNextWeek = () => {
+    setSelectedWeekStart((prev) => addWeeks(prev, 1));
+  };
+
+  const handleGoToToday = () => {
+    setSelectedWeekStart(startOfToday());
+  };
+
+  const handleSelectDate = (date: Date) => {
+    setSelectedWeekStart(date);
+  };
+
+  const handleToggleWeekend = () => {
+    setShowWeekend(!showWeekend);
+  };
+
   return (
     <div className="flex h-[calc(100dvh-4rem)] flex-col px-4 py-6">
       {/* Header Section */}
       <div className="flex-shrink-0 space-y-4 pb-4">
         <h1 className="text-4xl font-bold">Weekly</h1>
 
-        {/* Temporary navigation controls - will be replaced with WeekNavigation component */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSelectedWeekStart((prev) => subWeeks(prev, 1))}
-              className="hover:bg-accent rounded-md border px-3 py-1 text-sm"
-            >
-              Previous
-            </button>
-            <span className="min-w-[200px] text-center font-semibold">
-              {getWeekLabel(selectedWeekStart)}
-            </span>
-            <button
-              onClick={() => setSelectedWeekStart((prev) => addWeeks(prev, 1))}
-              className="hover:bg-accent rounded-md border px-3 py-1 text-sm"
-            >
-              Next
-            </button>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSelectedWeekStart(startOfToday())}
-              className="hover:bg-accent rounded-md border px-3 py-1 text-sm"
-            >
-              Today
-            </button>
-
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={showWeekend}
-                onChange={(e) => setShowWeekend(e.target.checked)}
-                className="h-4 w-4"
-              />
-              Show Weekend
-            </label>
-          </div>
-        </div>
+        <WeekNavigation
+          selectedWeekStart={selectedWeekStart}
+          onPreviousWeek={handlePreviousWeek}
+          onNextWeek={handleNextWeek}
+          onGoToToday={handleGoToToday}
+          onSelectDate={handleSelectDate}
+          showWeekend={showWeekend}
+          onToggleWeekend={handleToggleWeekend}
+        />
       </div>
 
-      {/* Content placeholder */}
+      {/* Content placeholder - will be replaced with WeekGrid/DayCarousel in Phase 3 */}
       <div className="bg-card min-h-0 flex-1 rounded-lg border p-4">
         <div className="text-muted-foreground space-y-2 text-sm">
           <p>
-            <strong>Phase 1 Complete - Skeleton Page</strong>
+            <strong>Phase 2 Complete - Navigation Wired Up</strong>
           </p>
           <p>
             Week: {weekBoundaries.start} to {weekBoundaries.end}
