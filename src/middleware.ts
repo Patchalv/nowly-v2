@@ -18,6 +18,8 @@ export async function middleware(request: NextRequest) {
   const isDashboardRoute =
     pathname.startsWith('/today') ||
     pathname.startsWith('/daily') ||
+    pathname.startsWith('/all-tasks') ||
+    pathname.startsWith('/backlog') ||
     pathname.startsWith('/recurring') ||
     pathname.startsWith('/account') ||
     pathname.startsWith('/upcoming') ||

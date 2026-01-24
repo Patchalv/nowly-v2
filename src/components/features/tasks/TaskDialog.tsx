@@ -243,7 +243,7 @@ function TaskDialogContent({
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {scheduledDate
-                      ? format(scheduledDate, 'PPP')
+                      ? format(scheduledDate, 'PP')
                       : 'Pick a date'}
                   </Button>
                 </PopoverTrigger>
@@ -271,7 +271,7 @@ function TaskDialogContent({
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? format(dueDate, 'PPP') : 'Pick a date'}
+                    {dueDate ? format(dueDate, 'PP') : 'Pick a date'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
