@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { SentryUserContext } from '@/components/sentry-user-context';
+import { OnboardingTour } from '@/components/features/onboarding';
 
 interface ProtectedLayoutProps {
   children: ReactNode;
@@ -23,6 +24,7 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
           </header>
           <main className="flex flex-1 flex-col p-4">{children}</main>
         </SidebarInset>
+        <OnboardingTour />
       </SidebarProvider>
       {/* Set Sentry user context for error tracking in production */}
       <SentryUserContext />

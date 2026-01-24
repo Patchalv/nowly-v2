@@ -29,6 +29,7 @@ import { createClient } from '@/lib/supabase/client';
 import { signOut } from '@/app/(auth)/actions';
 import { toast } from 'sonner';
 import type { Workspace, Category } from '@/types/supabase';
+import { ReplayTourButton } from '@/components/features/onboarding';
 
 export default function AccountPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -229,6 +230,18 @@ export default function AccountPage() {
           <Button onClick={handleSaveProfile} disabled={isSavingProfile}>
             {isSavingProfile ? 'Saving...' : 'Save'}
           </Button>
+        </div>
+      </Card>
+
+      {/* Onboarding Section */}
+      <Card className="mb-6 p-6">
+        <h2 className="mb-4 text-xl font-semibold">Onboarding</h2>
+        <div className="space-y-4">
+          <p className="text-muted-foreground text-sm">
+            Replay the introductory tour to refresh your knowledge of
+            Nowly&apos;s features.
+          </p>
+          <ReplayTourButton />
         </div>
       </Card>
 
