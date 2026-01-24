@@ -202,10 +202,9 @@ export default function AllTasksPage() {
   const isLoading = workspacesLoading || tasksLoading;
 
   // Check if we have active filters for empty state messaging
+  // Note: sorting is not a filter (doesn't reduce results), only search and categories are
   const hasActiveFilters =
-    searchQuery.length > 0 ||
-    selectedCategories.length > 0 ||
-    sortBy !== 'due_date';
+    searchQuery.length > 0 || selectedCategories.length > 0;
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
