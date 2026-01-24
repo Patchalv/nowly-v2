@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import {
   driver,
   type DriveStep,
@@ -19,6 +19,7 @@ import {
   isSidebarElement,
 } from '@/lib/onboarding/tour-config';
 import { getTourSteps } from '@/lib/onboarding/tour-steps';
+import { CelebrationOverlay } from './CelebrationOverlay';
 
 /** Delay before starting the tour (ms) */
 const TOUR_START_DELAY = 2000;
@@ -43,6 +44,15 @@ export function OnboardingTour() {
   const { setOpenMobile, isMobile: isMobileSidebar } = useSidebar();
   const driverRef = useRef<Driver | null>(null);
   const hasStartedRef = useRef(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+
+  /**
+   * Handle celebration completion - mark tour as done in database.
+   */
+  const handleCelebrationComplete = useCallback(() => {
+    setShowCelebration(false);
+    completeTour.mutate();
+  }, [completeTour]);
 
   /**
    * Handle tour completion (either finished or closed early).
@@ -59,9 +69,9 @@ export function OnboardingTour() {
       setOpenMobile(false);
     }
 
-    // Mark tour as complete in database
-    completeTour.mutate();
-  }, [completeTour, isMobileSidebar, setOpenMobile]);
+    // Show celebration overlay with fireworks
+    setShowCelebration(true);
+  }, [isMobileSidebar, setOpenMobile]);
 
   /**
    * Handle step changes to manage mobile sidebar visibility.
@@ -140,7 +150,11 @@ export function OnboardingTour() {
     };
   }, [isLoading, shouldShowTour, handleStepChange, handleTourComplete]);
 
-  // This component doesn't render anything visible
-  // Driver.js manages its own overlay and popovers
-  return null;
+  // Render celebration overlay when tour completes
+  return (
+    <CelebrationOverlay
+      show={showCelebration}
+      onComplete={handleCelebrationComplete}
+    />
+  );
 }
