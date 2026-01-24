@@ -235,7 +235,10 @@ export default function AllTasksPage() {
 
       {/* Quick Add Task */}
       <div className="mb-6">
-        <QuickAddBacklog workspaceId={selectedWorkspaceId} />
+        <QuickAddBacklog
+          workspaceId={selectedWorkspaceId}
+          placeholder="Add a task..."
+        />
       </div>
 
       {/* Results count and refetching indicator */}

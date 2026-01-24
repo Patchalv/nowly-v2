@@ -18,9 +18,13 @@ import { toast } from 'sonner';
 
 interface QuickAddBacklogProps {
   workspaceId?: string | null; // Optional when Master is selected
+  placeholder?: string;
 }
 
-export function QuickAddBacklog({ workspaceId }: QuickAddBacklogProps) {
+export function QuickAddBacklog({
+  workspaceId,
+  placeholder = 'Add a task to the backlog...',
+}: QuickAddBacklogProps) {
   const [title, setTitle] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -92,7 +96,7 @@ export function QuickAddBacklog({ workspaceId }: QuickAddBacklogProps) {
         className="text-muted-foreground hover:text-foreground hover:bg-accent/50 flex w-full items-center gap-2 rounded-lg border border-dashed px-4 py-3 text-left transition-colors hover:border-solid"
       >
         <Plus className="h-4 w-4 text-blue-500" />
-        <span>Add a task to the backlog...</span>
+        <span>{placeholder}</span>
       </button>
     );
   }
@@ -107,7 +111,7 @@ export function QuickAddBacklog({ workspaceId }: QuickAddBacklogProps) {
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Add a task to the backlog..."
+          placeholder={placeholder}
           className="h-auto flex-1 border-0 p-0 focus-visible:ring-0"
           autoFocus
           onBlur={() => {
