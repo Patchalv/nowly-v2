@@ -74,20 +74,22 @@ export default function WeeklyPage() {
   const toggleComplete = useToggleTaskComplete();
 
   const handleToggleComplete = (task: TaskWithRelations) => {
-    // Immediately update UI optimistically
+    // Immediately update UI optimistically - filter out completed tasks
     setOptimisticTasks((current) => {
       const tasksToUpdate = current ?? incompleteTasks;
       if (!tasksToUpdate) return current;
 
-      return tasksToUpdate.map((t) =>
-        t.id === task.id
-          ? {
-              ...t,
-              is_completed: !t.is_completed,
-              completed_at: !t.is_completed ? new Date().toISOString() : null,
-            }
-          : t
-      );
+      return tasksToUpdate
+        .map((t) =>
+          t.id === task.id
+            ? {
+                ...t,
+                is_completed: !t.is_completed,
+                completed_at: !t.is_completed ? new Date().toISOString() : null,
+              }
+            : t
+        )
+        .filter((t) => !t.is_completed);
     });
 
     // Then trigger the actual mutation

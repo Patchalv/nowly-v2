@@ -31,7 +31,7 @@ export function TaskCard({ task, onToggleComplete, onClick }: TaskCardProps) {
       {/* Checkbox */}
       <Checkbox
         checked={task.is_completed || false}
-        onCheckedChange={() => onToggleComplete()}
+        onCheckedChange={onToggleComplete}
         onClick={(e) => e.stopPropagation()}
         className="mt-0.5 flex-shrink-0"
       />
