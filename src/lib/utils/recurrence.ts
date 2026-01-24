@@ -112,9 +112,18 @@ export function formatRecurrencePattern(
 
     case 'fixed_weekly': {
       const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      const selectedDays = days_of_week?.map((d) => dayNames[d]).join(' & ');
+      const selectedDays = (days_of_week ?? [])
+        .filter((d) => dayNames[d] !== undefined)
+        .map((d) => dayNames[d])
+        .join(' & ');
       const weekInterval = interval_weeks || 1;
 
+      // Guard against empty days_of_week
+      if (!selectedDays) {
+        return weekInterval === 1
+          ? 'Every week'
+          : `Every ${weekInterval} weeks`;
+      }
       if (weekInterval === 1) {
         return `Every ${selectedDays}`;
       }
@@ -185,15 +194,16 @@ function convertJsDayToOurFormat(jsDay: number): number {
 }
 
 /**
- * Find the next occurrence of specific weekday(s) with optional week interval
+ * Find the next occurrence of specific weekday(s) with week interval
  */
 function findNextWeekdayWithInterval(
   fromDate: Date,
   daysOfWeek: number[],
-  intervalWeeks: number = 1
+  intervalWeeks: number
 ): Date {
   const sortedDays = [...daysOfWeek].sort((a, b) => a - b);
   let tempDate = addDays(fromDate, 1); // Start from next day
+  const weekInterval = intervalWeeks || 1;
 
   // For interval > 1, we need to track when we cross week boundaries
   const baseWeekStart = addDays(
@@ -206,8 +216,8 @@ function findNextWeekdayWithInterval(
     const adjustedDay = convertJsDayToOurFormat(getDay(tempDate));
 
     if (sortedDays.includes(adjustedDay)) {
-      // Check if enough weeks have passed for intervals > 1
-      if (intervalWeeks === 1) {
+      // Check if this is a valid week for the interval
+      if (weekInterval === 1) {
         return tempDate;
       }
 
@@ -220,7 +230,8 @@ function findNextWeekdayWithInterval(
           (7 * 24 * 60 * 60 * 1000)
       );
 
-      if (weeksPassed >= intervalWeeks - 1) {
+      // Use modulo to ensure proper interval (biweekly = weeks 0, 2, 4...)
+      if (weeksPassed % weekInterval === 0) {
         return tempDate;
       }
     }
@@ -229,7 +240,7 @@ function findNextWeekdayWithInterval(
   }
 
   // Fallback: just add interval weeks
-  return addWeeks(fromDate, intervalWeeks);
+  return addWeeks(fromDate, weekInterval);
 }
 
 /**
