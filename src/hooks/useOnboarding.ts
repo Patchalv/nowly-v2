@@ -44,12 +44,14 @@ export function useOnboarding() {
   const supabase = createClient();
 
   // Fetch onboarding state (RLS ensures we only get our own record)
+  // Use maybeSingle() instead of single() to return null for new users
+  // who don't have an onboarding record yet (records are created lazily)
   const {
     data,
     isLoading,
     error: fetchError,
     refetch,
-  } = useQuery(supabase.from('user_onboarding').select('*').single());
+  } = useQuery(supabase.from('user_onboarding').select('*').maybeSingle());
 
   // Log fetch errors in useEffect to avoid re-logging on every render
   useEffect(() => {
@@ -79,50 +81,88 @@ export function useOnboarding() {
   );
 
   // Computed: should we show the tour?
+  // Returns true for new users (no record) or users who haven't completed the tour
   const shouldShowTour = useMemo(() => {
-    if (isLoading || !data) return false;
+    if (isLoading) return false;
+    // No record means new user who hasn't seen the tour
+    if (!data) return true;
     return !data.initial_tour_completed;
   }, [data, isLoading]);
 
   /**
    * Mark the initial tour as complete.
    * Call this when the user finishes or skips the tour.
+   * Uses upsert to handle both new users (insert) and existing users (update).
    */
   const completeTour = useMemo(() => {
-    return {
-      ...updateMutation,
-      mutate: () => {
-        if (!data?.id) return;
+    const doCompleteTour = async () => {
+      Sentry.addBreadcrumb({
+        category: 'onboarding',
+        message: 'Marking tour as complete',
+        level: 'info',
+      });
 
-        Sentry.addBreadcrumb({
-          category: 'onboarding',
-          message: 'Marking tour as complete',
-          level: 'info',
-        });
-
-        updateMutation.mutate({
-          id: data.id,
-          initial_tour_completed: true,
-          initial_tour_completed_at: new Date().toISOString(),
-        });
-      },
-      mutateAsync: async () => {
-        if (!data?.id) return;
-
-        Sentry.addBreadcrumb({
-          category: 'onboarding',
-          message: 'Marking tour as complete',
-          level: 'info',
-        });
-
+      // If we have an existing record, update it
+      if (data?.id) {
         await updateMutation.mutateAsync({
           id: data.id,
           initial_tour_completed: true,
           initial_tour_completed_at: new Date().toISOString(),
         });
-      },
+        return;
+      }
+
+      // No existing record - create one via upsert
+      // Get current user ID for the new record
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        Sentry.captureException(userError || new Error('No user found'), {
+          tags: {
+            feature: 'onboarding',
+            operation: 'completeTour',
+          },
+        });
+        return;
+      }
+
+      // Upsert the onboarding record (insert or update on conflict)
+      const { error } = await supabase.from('user_onboarding').upsert(
+        {
+          user_id: user.id,
+          initial_tour_completed: true,
+          initial_tour_completed_at: new Date().toISOString(),
+          dismissed_tooltips: [],
+        },
+        { onConflict: 'user_id' }
+      );
+
+      if (error) {
+        handleSupabaseError(error, {
+          table: 'user_onboarding',
+          operation: 'upsert',
+          source: 'useOnboarding.completeTour',
+        });
+        throw error;
+      }
+
+      // Refetch to get the new record
+      await refetch();
     };
-  }, [data?.id, updateMutation]);
+
+    return {
+      ...updateMutation,
+      mutate: () => {
+        doCompleteTour().catch(() => {
+          // Error already logged in doCompleteTour
+        });
+      },
+      mutateAsync: doCompleteTour,
+    };
+  }, [data?.id, updateMutation, supabase, refetch]);
 
   /**
    * Check if a tooltip has been dismissed by the user.
