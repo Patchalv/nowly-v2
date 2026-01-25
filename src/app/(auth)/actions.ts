@@ -64,10 +64,8 @@ export async function login(formData: FormData): Promise<ActionResponse> {
     } = await supabase.auth.getUser();
 
     if (user) {
-      Sentry.setUser({
-        id: user.id,
-        email: user.email,
-      });
+      // Only send user ID to Sentry (GDPR compliance - no PII)
+      Sentry.setUser({ id: user.id });
     }
   }
 

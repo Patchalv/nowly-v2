@@ -28,10 +28,8 @@ export async function GET(request: NextRequest) {
       } = await supabase.auth.getUser();
 
       if (user) {
-        Sentry.setUser({
-          id: user.id,
-          email: user.email,
-        });
+        // Only send user ID to Sentry (GDPR compliance - no PII)
+        Sentry.setUser({ id: user.id });
       }
     }
 

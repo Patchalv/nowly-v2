@@ -96,9 +96,11 @@ export function useInboxTasks(
     query = query.eq('workspace_id', workspaceId);
   }
 
-  // Apply search filter if specified (expects pre-escaped string, min 2 chars)
+  // Apply search filter if specified (min 2 chars)
   if (searchQuery && searchQuery.length >= 2) {
-    query = query.ilike('title', `%${searchQuery}%`);
+    // Escape SQL LIKE wildcards to treat them as literal characters
+    const escapedSearch = searchQuery.replace(/[%_\\]/g, '\\$&');
+    query = query.ilike('title', `%${escapedSearch}%`);
   }
 
   return useQuery(query.order('created_at', { ascending: false }));
