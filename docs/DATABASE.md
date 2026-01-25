@@ -275,6 +275,18 @@ CREATE TRIGGER update_workspaces_updated_at
 
 ### Generate next recurring task instance
 
+This trigger automatically generates the next task instance when a recurring task is completed.
+
+**Supported recurrence types:**
+
+| Type                       | Description                          | Key Fields Used                                                    |
+| -------------------------- | ------------------------------------ | ------------------------------------------------------------------ |
+| `interval_from_completion` | N days after task completion         | `interval_days`                                                    |
+| `fixed_daily`              | Every N days from last due date      | `interval_days`                                                    |
+| `fixed_weekly`             | Every X weeks on specific weekday(s) | `interval_weeks`, `days_of_week`                                   |
+| `fixed_monthly`            | Every X months on day or Nth weekday | `interval_months`, `day_of_month`, `week_of_month`, `days_of_week` |
+| `fixed_yearly`             | Same month/day every year            | `month_of_year`, `day_of_month`                                    |
+
 ```sql
 CREATE OR REPLACE FUNCTION public.generate_next_recurring_instance()
 RETURNS TRIGGER
@@ -284,24 +296,47 @@ AS $$
 DECLARE
   template public.recurring_tasks%ROWTYPE;
   next_date DATE;
+  -- Additional variables for weekly/monthly calculations
+  target_dow INTEGER;
+  week_interval INTEGER;
+  month_interval INTEGER;
+  target_week INTEGER;
+  first_of_month DATE;
+  temp_date DATE;
+  adjusted_dow INTEGER;
+  occurrence_count INTEGER;
 BEGIN
-  -- Only trigger when task is completed
+  -- Only trigger when task is completed (not when uncompleting)
   IF NEW.is_completed = TRUE AND OLD.is_completed = FALSE AND NEW.recurring_task_id IS NOT NULL THEN
     SELECT * INTO template FROM public.recurring_tasks WHERE id = NEW.recurring_task_id;
 
-    IF template.is_active AND NOT template.is_paused THEN
+    IF FOUND AND template.is_active AND NOT template.is_paused THEN
       -- Calculate next date based on recurrence type
       CASE template.recurrence_type
         WHEN 'interval_from_completion' THEN
-          next_date := CURRENT_DATE + template.interval_days;
+          next_date := CURRENT_DATE + COALESCE(template.interval_days, 1);
+
         WHEN 'fixed_daily' THEN
-          next_date := template.next_due_date + template.interval_days;
-        -- Add other recurrence type calculations
+          next_date := template.next_due_date + COALESCE(template.interval_days, 1);
+
+        WHEN 'fixed_weekly' THEN
+          -- Complex logic to find next occurrence based on days_of_week and interval_weeks
+          -- See migration 20240101000012_fix_recurrence_trigger_case.sql for full implementation
+
+        WHEN 'fixed_monthly' THEN
+          -- Handles both specific day (e.g., "15th") and Nth weekday (e.g., "2nd Monday")
+          -- See migration 20240101000012_fix_recurrence_trigger_case.sql for full implementation
+
+        WHEN 'fixed_yearly' THEN
+          next_date := template.next_due_date + INTERVAL '1 year';
+
+        ELSE
+          -- IMPORTANT: Always include ELSE to prevent "case not found" error
+          next_date := template.next_due_date + COALESCE(template.interval_days, 1);
       END CASE;
 
-      -- Check if within end_date bounds
-      IF template.end_date IS NULL OR next_date <= template.end_date THEN
-        -- Create new task instance
+      -- Only create if within end_date bounds
+      IF next_date IS NOT NULL AND (template.end_date IS NULL OR next_date <= template.end_date) THEN
         INSERT INTO public.tasks (
           user_id, workspace_id, category_id, recurring_task_id,
           title, description, priority, scheduled_date
@@ -310,7 +345,6 @@ BEGIN
           template.title, template.description, template.priority, next_date
         );
 
-        -- Update template's next_due_date
         UPDATE public.recurring_tasks
         SET next_due_date = next_date, occurrences_generated = occurrences_generated + 1
         WHERE id = template.id;
@@ -326,6 +360,9 @@ CREATE TRIGGER on_task_completed
   AFTER UPDATE ON public.tasks
   FOR EACH ROW EXECUTE FUNCTION public.generate_next_recurring_instance();
 ```
+
+> **Note:** The full implementation with all recurrence type logic is in
+> `supabase/migrations/20240101000012_fix_recurrence_trigger_case.sql`
 
 ## Application-Level Constraints
 
