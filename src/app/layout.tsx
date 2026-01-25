@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono, Inter } from 'next/font/google';
 import { Toaster } from '@/components/ui/sonner';
 import { ThemeProvider } from '@/components/theme-provider';
@@ -17,6 +17,10 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
 });
+
+export const viewport: Viewport = {
+  themeColor: '#000000',
+};
 
 export const metadata: Metadata = {
   title: {
@@ -59,8 +63,6 @@ export const metadata: Metadata = {
     apple: '/apple-touch-icon.png',
   },
 
-  // Theme color for browser UI (mobile Safari, Chrome, etc.)
-  themeColor: '#000000',
   verification: {
     google: 'EtaQsAPiJREYVc_JvC4M3jhaCXP1z2TJT_kozTZWah8',
   },
