@@ -6,7 +6,7 @@
 
 **Nowly v2** is a modern task management app built with:
 
-- Next.js 15 (App Router)
+- Next.js 16 (App Router)
 - Supabase (PostgreSQL + Auth)
 - TypeScript (strict mode)
 - shadcn/ui + Tailwind CSS
@@ -26,14 +26,16 @@
 ```
 src/
 ├── app/                    # Next.js App Router pages
-│   ├── (auth)/             # Auth routes (login, signup)
-│   ├── (dashboard)/        # Protected routes
-│   └── api/                # API routes (if needed)
+│   ├── (auth)/             # Auth routes (login, signup, privacy, terms)
+│   ├── (protected)/        # Protected routes (requires authentication)
+│   └── auth/callback/      # OAuth callback handler
+├── proxy.ts                # Route protection middleware (Next.js 16 convention)
 ├── components/
 │   ├── ui/                 # shadcn primitives (do not edit)
 │   └── features/           # Feature components (tasks/, sidebar/, etc.)
 ├── lib/
-│   ├── supabase/           # Supabase client (server.ts, client.ts, middleware.ts)
+│   ├── supabase/           # Supabase clients (server.ts, client.ts, middleware.ts)
+│   ├── errors/             # Error handlers (Sentry integration)
 │   └── utils.ts            # Utility functions
 ├── schemas/                # Zod schemas (source of truth)
 ├── types/                  # Generated TypeScript types
@@ -167,7 +169,48 @@ src/
 
 See [`src/lib/onboarding/README.md`](src/lib/onboarding/README.md) for detailed onboarding documentation.
 
-### 7. Error Handling — Sentry Integration
+### 7. Route Protection & Security
+
+**Defense-in-depth architecture:** Route protection uses two layers:
+
+1. **`src/proxy.ts`** — Next.js 16 proxy (middleware) for optimistic redirects
+2. **`src/app/(protected)/layout.tsx`** — Server-side auth check as primary security layer
+
+```typescript
+// ✅ CORRECT: Protected layout validates JWT server-side
+// src/app/(protected)/layout.tsx
+export default async function ProtectedLayout({ children }) {
+  const supabase = await createClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    redirect('/login');
+  }
+
+  return <>{children}</>;
+}
+```
+
+**Route configuration in `src/proxy.ts`:**
+
+| Route Type | Routes                                                                            | Behavior                                      |
+| ---------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
+| Public     | `/`, `/login`, `/signup`, `/privacy`, `/terms`, `/auth/callback`                  | No auth required                              |
+| Auth       | `/login`, `/signup`                                                               | Redirect to `/today` if already authenticated |
+| Protected  | `/today`, `/daily`, `/weekly`, `/all-tasks`, `/backlog`, `/recurring`, `/account` | Redirect to `/login` if not authenticated     |
+
+**When adding new routes:**
+
+- **New protected route**: Add prefix to `protectedPrefixes` array in `proxy.ts`
+- **New public route**: Add to `publicRoutes` array in `proxy.ts`
+- **Protected routes** must be under `src/app/(protected)/` to inherit the layout auth check
+
+**GDPR compliance:**
+
+- Only send `user.id` to Sentry, never email or other PII
+- See Sentry section below for correct pattern
+
+### 8. Error Handling — Sentry Integration
 
 **When to use error handlers:**
 
@@ -289,6 +332,16 @@ async function completeRecurringTask(taskId: string) {
 - Use transactions for multi-step operations to measure performance
 - Error handlers only send to Sentry in production (safe to use everywhere)
 
+**GDPR compliance — Sentry user context:**
+
+```typescript
+// ✅ CORRECT: Only send user ID (GDPR compliant)
+Sentry.setUser({ id: user.id });
+
+// ❌ WRONG: Never send email or PII to third-party services
+Sentry.setUser({ id: user.id, email: user.email });
+```
+
 See [`src/lib/errors/README.md`](src/lib/errors/README.md) for detailed examples.
 
 ## Detailed Documentation
@@ -309,6 +362,24 @@ When creating new components, reference these patterns:
 - Form with validation: `src/components/features/tasks/TaskForm.tsx`
 - Data fetching hook: `src/hooks/useTasks.ts`
 - Zustand store: `src/stores/ui-store.ts`
+- Search with ILIKE: `src/hooks/useAllTasks.ts` (proper escaping)
+
+## Search Query Patterns
+
+When implementing search with Supabase `ilike()`, always escape SQL wildcards:
+
+```typescript
+// ✅ CORRECT: Escape wildcards before passing to ilike
+if (searchQuery && searchQuery.length >= 2) {
+  const escapedSearch = searchQuery.replace(/[%_\\]/g, '\\$&');
+  query = query.ilike('title', `%${escapedSearch}%`);
+}
+
+// ❌ WRONG: Unescaped input allows wildcard injection
+query = query.ilike('title', `%${searchQuery}%`);
+```
+
+This prevents users from using `%` or `_` as wildcards in their search.
 
 ## What to Avoid
 

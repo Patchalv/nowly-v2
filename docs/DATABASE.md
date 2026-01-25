@@ -19,8 +19,12 @@ CREATE TABLE public.profiles (
 );
 
 -- Trigger to auto-create profile, default workspace, and categories on signup
+-- NOTE: SET search_path = public prevents search_path hijacking attacks
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE
   new_workspace_id UUID;
 BEGIN
@@ -53,7 +57,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
@@ -249,8 +253,11 @@ CREATE POLICY "Users can manage own recurring tasks"
 ### Auto-update timestamps
 
 ```sql
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION public.update_updated_at()
+RETURNS TRIGGER
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
@@ -259,25 +266,28 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_tasks_updated_at
   BEFORE UPDATE ON public.tasks
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
 CREATE TRIGGER update_workspaces_updated_at
   BEFORE UPDATE ON public.workspaces
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 ```
 
 ### Generate next recurring task instance
 
 ```sql
-CREATE OR REPLACE FUNCTION generate_next_recurring_instance()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION public.generate_next_recurring_instance()
+RETURNS TRIGGER
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE
-  template recurring_tasks%ROWTYPE;
+  template public.recurring_tasks%ROWTYPE;
   next_date DATE;
 BEGIN
   -- Only trigger when task is completed
   IF NEW.is_completed = TRUE AND OLD.is_completed = FALSE AND NEW.recurring_task_id IS NOT NULL THEN
-    SELECT * INTO template FROM recurring_tasks WHERE id = NEW.recurring_task_id;
+    SELECT * INTO template FROM public.recurring_tasks WHERE id = NEW.recurring_task_id;
 
     IF template.is_active AND NOT template.is_paused THEN
       -- Calculate next date based on recurrence type
@@ -292,7 +302,7 @@ BEGIN
       -- Check if within end_date bounds
       IF template.end_date IS NULL OR next_date <= template.end_date THEN
         -- Create new task instance
-        INSERT INTO tasks (
+        INSERT INTO public.tasks (
           user_id, workspace_id, category_id, recurring_task_id,
           title, description, priority, scheduled_date
         ) VALUES (
@@ -301,7 +311,7 @@ BEGIN
         );
 
         -- Update template's next_due_date
-        UPDATE recurring_tasks
+        UPDATE public.recurring_tasks
         SET next_due_date = next_date, occurrences_generated = occurrences_generated + 1
         WHERE id = template.id;
       END IF;
@@ -310,11 +320,11 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER on_task_completed
   AFTER UPDATE ON public.tasks
-  FOR EACH ROW EXECUTE FUNCTION generate_next_recurring_instance();
+  FOR EACH ROW EXECUTE FUNCTION public.generate_next_recurring_instance();
 ```
 
 ## Application-Level Constraints
