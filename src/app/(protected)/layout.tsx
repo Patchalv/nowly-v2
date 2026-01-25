@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { cookies } from 'next/headers';
 import { AppSidebar } from '@/components/app-sidebar';
 import {
   SidebarInset,
@@ -9,14 +10,25 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { SentryUserContext } from '@/components/sentry-user-context';
 import { OnboardingTour } from '@/components/features/onboarding/OnboardingTour';
 
+const SIDEBAR_COOKIE_NAME = 'sidebar_state';
+
 interface ProtectedLayoutProps {
   children: ReactNode;
 }
 
-export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
+export default async function ProtectedLayout({
+  children,
+}: ProtectedLayoutProps) {
+  const cookieStore = await cookies();
+  const sidebarCookie = cookieStore.get(SIDEBAR_COOKIE_NAME);
+
+  // Default to open (true) if no cookie, otherwise parse the cookie value
+  const defaultOpen =
+    sidebarCookie?.value === undefined ? true : sidebarCookie.value === 'true';
+
   return (
     <TooltipProvider>
-      <SidebarProvider defaultOpen={false}>
+      <SidebarProvider defaultOpen={defaultOpen}>
         <AppSidebar />
         <SidebarInset>
           <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
