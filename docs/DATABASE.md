@@ -345,6 +345,58 @@ if (count <= 1) {
 **Why not a database trigger?**
 Database triggers that prevent deletion of the last workspace will block CASCADE deletion when removing users from `auth.users`, making it impossible to delete users from the Supabase dashboard.
 
+## Onboarding Tables
+
+### user_onboarding
+
+Tracks onboarding state and dismissed tooltips per user.
+
+```sql
+CREATE TABLE public.user_onboarding (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+
+  -- Tour completion
+  tour_completed BOOLEAN DEFAULT FALSE,
+  tour_completed_at TIMESTAMPTZ,
+
+  -- Dismissed contextual tooltips (array of tooltip type strings)
+  dismissed_tooltips TEXT[] DEFAULT '{}',
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+  -- One record per user
+  CONSTRAINT user_onboarding_user_id_unique UNIQUE (user_id)
+);
+
+CREATE INDEX idx_user_onboarding_user_id ON public.user_onboarding(user_id);
+```
+
+**RLS Policies:**
+
+```sql
+ALTER TABLE public.user_onboarding ENABLE ROW LEVEL SECURITY;
+
+-- Users can only access their own onboarding record
+CREATE POLICY "Users can manage own onboarding"
+  ON public.user_onboarding FOR ALL
+  TO authenticated
+  USING ((SELECT auth.uid()) = user_id);
+```
+
+**Dismissed Tooltips (TooltipType enum):**
+
+| Value                       | Description                             |
+| --------------------------- | --------------------------------------- |
+| `reschedule_button`         | Quick reschedule button on task items   |
+| `task_completion_undo`      | Undo tip shown on first task completion |
+| `task_dialog_scheduled_due` | Scheduled vs due date explanation       |
+
+**Note:** The `handle_new_user` trigger does NOT create a user_onboarding record. Records are created lazily on first tour interaction to avoid extra database overhead for users who skip onboarding.
+
+---
+
 ## Type Generation
 
 Generate TypeScript types from database:

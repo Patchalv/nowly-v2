@@ -97,6 +97,7 @@ export function QuickAddTask({
   if (!isExpanded) {
     return (
       <button
+        id="quick-add-task"
         onClick={() => setIsExpanded(true)}
         className="text-muted-foreground hover:text-foreground hover:bg-accent/50 flex w-full items-center gap-2 rounded-lg border border-dashed px-4 py-3 text-left transition-colors hover:border-solid"
       >
@@ -108,6 +109,7 @@ export function QuickAddTask({
 
   return (
     <form
+      id="quick-add-task"
       onSubmit={handleSubmit}
       className="bg-background flex w-full flex-col gap-3 rounded-lg border px-4 py-3"
     >

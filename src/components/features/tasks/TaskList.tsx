@@ -7,6 +7,8 @@ import { Switch } from '@/components/ui/switch';
 import { TaskItem } from './TaskItem';
 import type { Task, Category } from '@/types/supabase';
 import { useUIStore } from '@/stores/ui-store';
+import { ContextualTooltip } from '@/components/features/onboarding/ContextualTooltip';
+import { TooltipType } from '@/hooks/useOnboarding';
 
 interface TaskWithRelations extends Task {
   category?: Category | null;
@@ -161,6 +163,17 @@ export function TaskList({
             All tasks completed! 🎉
           </p>
         </div>
+      )}
+
+      {/* Contextual tooltip for reschedule button - rendered once at list level */}
+      {uncompletedTasks.length > 0 && (
+        <ContextualTooltip
+          tooltipType={TooltipType.RESCHEDULE_BUTTON}
+          element="[data-reschedule-button]"
+          title="Quick Reschedule"
+          description="Click to quickly move this task to another date without opening the full editor."
+          side="top"
+        />
       )}
     </div>
   );

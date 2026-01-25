@@ -152,6 +152,7 @@ export function TaskItem({
               variant="ghost"
               size="icon"
               className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 flex-shrink-0"
+              data-reschedule-button
               onClick={(e) => {
                 e.stopPropagation();
                 setIsRescheduleOpen(true);

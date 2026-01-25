@@ -115,7 +115,59 @@ const {
 - `is_detached` boolean allows individual instance modifications
 - Generate instances on-demand or via daily cron, never infinite future tasks
 
-### 6. Error Handling — Sentry Integration
+### 6. Onboarding System — Handle With Care ⚠️
+
+The onboarding system guides new users through the app using Driver.js tours and contextual tooltips. **Changes to navigation elements, sidebar items, or element IDs can break the onboarding flow.**
+
+**Before modifying these files, ASK THE USER:**
+
+```
+src/lib/onboarding/tour-steps.ts    # Tour step definitions with element selectors
+src/lib/onboarding/tour-config.ts   # Sidebar element selectors list
+src/components/app-sidebar.tsx      # Contains element IDs used by tour
+src/components/features/tasks/QuickAddTask.tsx  # Has #quick-add-task ID
+```
+
+**Critical element IDs used by the tour:**
+
+| Element ID                    | File             | Tour Step  |
+| ----------------------------- | ---------------- | ---------- |
+| `#sidebar-workspace-selector` | app-sidebar.tsx  | Workspaces |
+| `#quick-add-task`             | QuickAddTask.tsx | Quick Add  |
+| `[href="/today"]`             | app-sidebar.tsx  | Today View |
+| `[href="/backlog"]`           | app-sidebar.tsx  | Backlog    |
+| `[href="/recurring"]`         | app-sidebar.tsx  | Recurring  |
+
+**If you need to:**
+
+- **Add a new navigation item**: Consider if it needs a tour step
+- **Rename/move a route**: Update the selector in `tour-steps.ts`
+- **Remove an element**: Remove or update the corresponding tour step
+- **Change an element ID**: Update `SIDEBAR_SELECTORS` in `tour-config.ts`
+
+**Onboarding file structure:**
+
+```
+src/
+├── lib/onboarding/
+│   ├── tour-config.ts      # Driver.js config, sidebar selectors, isMobile()
+│   └── tour-steps.ts       # All tour step definitions (desktop + mobile)
+├── components/features/onboarding/
+│   ├── OnboardingTour.tsx      # Main tour component (auto-starts for new users)
+│   ├── ContextualTooltip.tsx   # One-time educational tooltips
+│   ├── CelebrationOverlay.tsx  # Fireworks on tour completion
+│   └── ReplayTourButton.tsx    # Manual tour replay (dev only)
+├── hooks/
+│   └── useOnboarding.ts    # Hook for tour state, tooltip dismissal
+├── types/
+│   └── onboarding.ts       # TooltipType enum, OnboardingState type
+└── styles/
+    └── onboarding-tour.css # Custom Driver.js styles
+```
+
+See [`src/lib/onboarding/README.md`](src/lib/onboarding/README.md) for detailed onboarding documentation.
+
+### 7. Error Handling — Sentry Integration
 
 **When to use error handlers:**
 
