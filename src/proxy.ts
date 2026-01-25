@@ -29,12 +29,9 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip proxy for static assets and Next.js internals
-  // (handled by matcher config, but double-check)
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/api') ||
-    pathname.includes('.')
-  ) {
+  // Note: matcher config already filters common asset extensions,
+  // so we only need to check for _next and api prefixes here
+  if (pathname.startsWith('/_next') || pathname.startsWith('/api')) {
     return NextResponse.next();
   }
 
@@ -83,9 +80,19 @@ export async function proxy(request: NextRequest) {
   );
 
   // Refresh session - this validates the JWT with Supabase
+  // Note: We intentionally use fail-closed behavior here. If getUser() errors
+  // (network issue, Supabase down), user will be undefined and protected routes
+  // will redirect to /login. This is the safe default. The protected layout
+  // provides the primary auth check and will report errors to Sentry.
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
+
+  // Log auth errors in development for debugging (don't spam Sentry from proxy)
+  if (error && process.env.NODE_ENV === 'development') {
+    console.warn('[proxy] Auth error:', error.message);
+  }
 
   // If user is authenticated and on auth routes, redirect to /today
   if (user && isAuthRoute) {
