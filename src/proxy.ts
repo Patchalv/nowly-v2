@@ -44,7 +44,9 @@ export async function proxy(request: NextRequest) {
   );
 
   // Check if this is an auth route (login/signup)
-  const isAuthRoute = authRoutes.includes(pathname);
+  const isAuthRoute = authRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + '/')
+  );
 
   // Check if this is a protected route
   const isProtectedRoute = protectedPrefixes.some((prefix) =>

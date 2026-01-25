@@ -266,11 +266,11 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_tasks_updated_at
   BEFORE UPDATE ON public.tasks
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
 CREATE TRIGGER update_workspaces_updated_at
   BEFORE UPDATE ON public.workspaces
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 ```
 
 ### Generate next recurring task instance
@@ -324,7 +324,7 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER on_task_completed
   AFTER UPDATE ON public.tasks
-  FOR EACH ROW EXECUTE FUNCTION generate_next_recurring_instance();
+  FOR EACH ROW EXECUTE FUNCTION public.generate_next_recurring_instance();
 ```
 
 ## Application-Level Constraints

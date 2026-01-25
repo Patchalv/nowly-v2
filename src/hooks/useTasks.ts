@@ -71,7 +71,7 @@ export function useTasksForDateRange(
  * Fetch inbox tasks (no scheduled date)
  * Tasks that haven't been scheduled yet
  * @param workspaceId - Optional workspace filter (null = all workspaces)
- * @param searchQuery - Optional search string for title (min 2 chars, pre-escaped)
+ * @param searchQuery - Optional search string for title (min 2 chars)
  */
 export function useInboxTasks(
   workspaceId?: string | null,
