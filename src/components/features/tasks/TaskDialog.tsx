@@ -104,9 +104,9 @@ function TaskDialogContent({
         workspace_id: workspaceId,
         category_id: categoryId,
         scheduled_date: scheduledDate
-          ? scheduledDate.toISOString().split('T')[0]
+          ? format(scheduledDate, 'yyyy-MM-dd')
           : null,
-        due_date: dueDate ? dueDate.toISOString().split('T')[0] : null,
+        due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
       });
 
       toast.success('Task updated');
