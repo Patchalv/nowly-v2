@@ -219,13 +219,19 @@ AS $$
 DECLARE
   template public.recurring_tasks%ROWTYPE;
   next_date DATE;
-  base_date DATE;
   prev_date DATE;
   iterations INTEGER;
+  -- Generous enough for ~54 years of daily occurrences. Each iteration is
+  -- pure date math (~2us), so exhausting the budget costs tens of ms.
+  max_iterations CONSTANT INTEGER := 20000;
 BEGIN
   -- Only trigger when task is completed (not when uncompleting)
   IF NEW.is_completed = TRUE AND OLD.is_completed = FALSE AND NEW.recurring_task_id IS NOT NULL THEN
-    SELECT * INTO template FROM public.recurring_tasks WHERE id = NEW.recurring_task_id;
+    -- FOR UPDATE serializes concurrent completions of the same template.
+    -- Without it, two overlapping transactions both read the same cursor
+    -- and generate duplicate instances for the same date.
+    SELECT * INTO template FROM public.recurring_tasks
+      WHERE id = NEW.recurring_task_id FOR UPDATE;
 
     -- Only generate if template exists, is active, and not paused
     IF FOUND AND template.is_active AND NOT template.is_paused THEN
@@ -234,18 +240,13 @@ BEGIN
         -- Already relative to today, so no catch-up is needed.
         next_date := CURRENT_DATE + COALESCE(template.interval_days, 1);
       ELSE
-        -- Base on the later of the template's cursor and the completed
-        -- instance, so completing an out-of-order instance can't rewind
-        -- the schedule. (GREATEST ignores NULLs, so an unscheduled task
-        -- falls back to the template's cursor.)
-        base_date := GREATEST(template.next_due_date, NEW.scheduled_date);
-        next_date := public.calculate_next_recurrence(template, base_date);
+        next_date := public.calculate_next_recurrence(template, template.next_due_date);
 
         -- Catch up: skip occurrences that are already in the past, so the
         -- generated instance is always strictly in the future and cannot
         -- reappear in the Today view (which shows scheduled_date <= today).
         iterations := 0;
-        WHILE next_date IS NOT NULL AND next_date <= CURRENT_DATE AND iterations < 1000 LOOP
+        WHILE next_date IS NOT NULL AND next_date <= CURRENT_DATE AND iterations < max_iterations LOOP
           prev_date := next_date;
           next_date := public.calculate_next_recurrence(template, next_date);
 
@@ -257,8 +258,16 @@ BEGIN
         END LOOP;
       END IF;
 
-      -- Only create new instance if next_date was calculated and within bounds
-      IF next_date IS NOT NULL AND (template.end_date IS NULL OR next_date <= template.end_date) THEN
+      IF next_date IS NULL OR next_date <= CURRENT_DATE THEN
+        -- Both loop exits above (budget exhausted, or a template that stops
+        -- advancing) leave next_date in the past. Generating it would
+        -- recreate the exact defect this migration fixes: a task that
+        -- disappears on completion and immediately returns. Skip it and
+        -- surface the bad template in the logs instead.
+        RAISE WARNING 'generate_next_recurring_instance: no future occurrence for recurring_task % (type %, cursor %); computed %',
+          template.id, template.recurrence_type, template.next_due_date, next_date;
+
+      ELSIF template.end_date IS NULL OR next_date <= template.end_date THEN
         -- Create new task instance
         INSERT INTO public.tasks (
           user_id, workspace_id, category_id, recurring_task_id,
@@ -273,12 +282,19 @@ BEGIN
         SET next_due_date = next_date, occurrences_generated = occurrences_generated + 1
         WHERE id = template.id;
       END IF;
+      -- Past end_date: nothing to generate, the schedule is exhausted.
     END IF;
   END IF;
 
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- The helper is an internal detail of the trigger. Without this REVOKE it
+-- inherits the default PUBLIC grant and PostgREST exposes it as an RPC
+-- endpoint (/rest/v1/rpc/calculate_next_recurrence). The SECURITY DEFINER
+-- trigger still calls it, since that runs as the function owner.
+REVOKE EXECUTE ON FUNCTION public.calculate_next_recurrence(public.recurring_tasks, DATE) FROM PUBLIC;
 
 -- Ensure trigger exists and uses the updated function
 DROP TRIGGER IF EXISTS on_task_completed ON public.tasks;
@@ -291,4 +307,9 @@ CREATE TRIGGER on_task_completed
 -- Restore generate_next_recurring_instance() from migration
 -- 20240101000012_fix_recurrence_trigger_case.sql, then
 -- DROP FUNCTION IF EXISTS public.calculate_next_recurrence(public.recurring_tasks, DATE);
+--
+-- Note: taking public.recurring_tasks as a composite parameter makes the
+-- helper depend on the table's row type, so DROP TABLE public.recurring_tasks
+-- now requires CASCADE (which would silently drop the helper too). Adding or
+-- dropping columns is unaffected.
 -- =====================================================

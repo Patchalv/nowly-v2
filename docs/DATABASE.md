@@ -321,11 +321,13 @@ BEGIN
 
         WHEN 'fixed_weekly' THEN
           -- Complex logic to find next occurrence based on days_of_week and interval_weeks
-          -- See migration 20240101000012_fix_recurrence_trigger_case.sql for full implementation
+          -- See public.calculate_next_recurrence() in migration
+          -- 20240101000013_recurring_catchup.sql for full implementation
 
         WHEN 'fixed_monthly' THEN
           -- Handles both specific day (e.g., "15th") and Nth weekday (e.g., "2nd Monday")
-          -- See migration 20240101000012_fix_recurrence_trigger_case.sql for full implementation
+          -- See public.calculate_next_recurrence() in migration
+          -- 20240101000013_recurring_catchup.sql for full implementation
 
         WHEN 'fixed_yearly' THEN
           next_date := template.next_due_date + INTERVAL '1 year';
@@ -361,8 +363,27 @@ CREATE TRIGGER on_task_completed
   FOR EACH ROW EXECUTE FUNCTION public.generate_next_recurring_instance();
 ```
 
-> **Note:** The full implementation with all recurrence type logic is in
-> `supabase/migrations/20240101000012_fix_recurrence_trigger_case.sql`
+> **Note:** The full implementation is in
+> `supabase/migrations/20240101000013_recurring_catchup.sql`. The per-type date
+> math lives in the helper `public.calculate_next_recurrence(template, from_date)`;
+> the trigger calls it in a loop.
+
+### Catch-up rule for overdue tasks
+
+The trigger does **not** generate one instance per missed period. It advances the
+schedule until the next occurrence is strictly after `CURRENT_DATE`, so missed
+occurrences are skipped and completing an overdue recurring task always clears it
+in a single click.
+
+This matters because the Today view queries `scheduled_date <= today` (see
+`useTodayTasks` in `src/hooks/useTasks.ts`). Generating a past-dated instance would
+make a completed task reappear immediately. If the loop cannot find a future date
+(a malformed template that stops advancing, or one absurdly far overdue), it
+generates nothing and emits a `RAISE WARNING` rather than creating a permanently
+overdue task.
+
+`interval_from_completion` skips the loop entirely — it is already relative to
+`CURRENT_DATE`.
 
 ## Application-Level Constraints
 
