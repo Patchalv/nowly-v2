@@ -4,15 +4,6 @@
 
 ## Project Overview
 
-**Nowly v2** is a modern task management app built with:
-
-- Next.js 16 (App Router)
-- Supabase (PostgreSQL + Auth)
-- TypeScript (strict mode)
-- shadcn/ui + Tailwind CSS
-- TanStack Query + Supabase Cache Helpers (server state)
-- Zustand (client UI state)
-
 **Key architectural decisions:**
 
 - Scheduled date vs due date distinction (Amazing Marvin pattern)
@@ -20,42 +11,6 @@
 - Feature-based folder structure with direct imports (no barrel files)
 - Zod schemas as single source of truth for types
 - Custom auth forms with Server Actions (not deprecated auth-ui-react)
-
-## Quick Reference
-
-```
-src/
-├── app/                    # Next.js App Router pages
-│   ├── (auth)/             # Auth routes (login, signup, privacy, terms)
-│   ├── (protected)/        # Protected routes (requires authentication)
-│   └── auth/callback/      # OAuth callback handler
-├── proxy.ts                # Route protection middleware (Next.js 16 convention)
-├── components/
-│   ├── ui/                 # shadcn primitives (do not edit)
-│   └── features/           # Feature components (tasks/, sidebar/, etc.)
-├── lib/
-│   ├── supabase/           # Supabase clients (server.ts, client.ts, middleware.ts)
-│   ├── errors/             # Error handlers (Sentry integration)
-│   └── utils.ts            # Utility functions
-├── schemas/                # Zod schemas (source of truth)
-├── types/                  # Generated TypeScript types
-├── hooks/                  # Custom React hooks
-└── stores/                 # Zustand stores
-```
-
-## Commands
-
-```bash
-npm run dev          # Start development server
-npm run build        # Production build
-npm run start        # Start production server (after build)
-npm run typecheck    # TypeScript check (run before commits)
-npm run lint         # ESLint
-npm run test         # Run tests
-npm run format       # Format code with Prettier
-npm run format:check # Check code formatting (CI/lint step)
-npm run db:types     # Generate Supabase types
-```
 
 ## Critical Rules
 
@@ -147,26 +102,6 @@ src/components/features/tasks/QuickAddTask.tsx  # Has #quick-add-task ID
 - **Remove an element**: Remove or update the corresponding tour step
 - **Change an element ID**: Update `SIDEBAR_SELECTORS` in `tour-config.ts`
 
-**Onboarding file structure:**
-
-```
-src/
-├── lib/onboarding/
-│   ├── tour-config.ts      # Driver.js config, sidebar selectors, isMobile()
-│   └── tour-steps.ts       # All tour step definitions (desktop + mobile)
-├── components/features/onboarding/
-│   ├── OnboardingTour.tsx      # Main tour component (auto-starts for new users)
-│   ├── ContextualTooltip.tsx   # One-time educational tooltips
-│   ├── CelebrationOverlay.tsx  # Fireworks on tour completion
-│   └── ReplayTourButton.tsx    # Manual tour replay (dev only)
-├── hooks/
-│   └── useOnboarding.ts    # Hook for tour state, tooltip dismissal
-├── types/
-│   └── onboarding.ts       # TooltipType enum, OnboardingState type
-└── styles/
-    └── onboarding-tour.css # Custom Driver.js styles
-```
-
 See [`src/lib/onboarding/README.md`](src/lib/onboarding/README.md) for detailed onboarding documentation.
 
 ### 7. Route Protection & Security
@@ -251,77 +186,7 @@ const { data, error } = await supabase.from('tasks').insert(task);
 if (error) console.error(error); // Won't be tracked in production
 ```
 
-**Add breadcrumbs for user actions:**
-
-```typescript
-import * as Sentry from '@sentry/nextjs';
-
-// ✅ CORRECT: Add breadcrumbs before critical operations
-async function createTask(taskData: TaskInput) {
-  Sentry.addBreadcrumb({
-    category: 'task',
-    message: 'Creating new task',
-    level: 'info',
-    data: {
-      workspace_id: taskData.workspace_id,
-      category_id: taskData.category_id,
-      // Don't include PII like task title
-    },
-  });
-
-  const { data, error } = await supabase.from('tasks').insert(taskData);
-  // ... error handling
-}
-
-// ✅ CORRECT: Track user interactions
-function handleWorkspaceSwitch(workspaceId: string) {
-  Sentry.addBreadcrumb({
-    category: 'navigation',
-    message: 'Switched workspace',
-    level: 'info',
-    data: { workspace_id: workspaceId },
-  });
-}
-```
-
-**Monitor critical operations with transactions:**
-
-```typescript
-import * as Sentry from '@sentry/nextjs';
-
-// ✅ CORRECT: Use transactions for complex operations
-async function completeRecurringTask(taskId: string) {
-  return await Sentry.startSpan(
-    {
-      op: 'task.complete_recurring',
-      name: 'Complete Recurring Task',
-      attributes: { task_id: taskId },
-    },
-    async () => {
-      // Mark current instance complete
-      const { error: completeError } = await supabase
-        .from('tasks')
-        .update({ is_completed: true })
-        .eq('id', taskId);
-
-      if (completeError) {
-        handleSupabaseError(completeError, {
-          table: 'tasks',
-          operation: 'update',
-          source: 'completeRecurringTask',
-        });
-        throw completeError;
-      }
-
-      // Generate next instance
-      const { error: generateError } = await generateNextInstance(taskId);
-      if (generateError) throw generateError;
-
-      return { success: true };
-    }
-  );
-}
-```
+For breadcrumb and transaction (`Sentry.startSpan`) patterns, use the `sentry-instrumentation` skill.
 
 **Key principles:**
 
@@ -383,6 +248,7 @@ This prevents users from using `%` or `_` as wildcards in their search.
 
 ## What to Avoid
 
+- Editing `src/components/ui/` (shadcn primitives — regenerate, don't hand-edit)
 - Class components (use functional components with hooks)
 - `useEffect` for data fetching (use TanStack Query)
 - Direct Supabase calls in components (use hooks)
