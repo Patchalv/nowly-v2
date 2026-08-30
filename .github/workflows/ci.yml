@@ -1,0 +1,42 @@
+# CI for the software factory's Verify stage.
+#
+# The factory reads these jobs' conclusions through the GitHub Actions API and
+# will not mark a pull request ready unless every job named in `factory.yml`'s
+# `checks:` is present and green. The job keys below are those names — rename a
+# job here and you must rename it there in the same commit, or Verify waits for
+# a check that no longer exists and fails at its deadline.
+#
+# The factory cannot edit this file. Its machine account's token deliberately
+# lacks the `workflow` scope, so an agent cannot make its own gate pass.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
