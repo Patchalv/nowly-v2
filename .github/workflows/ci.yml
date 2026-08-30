@@ -16,12 +16,25 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only, explicitly. The default comes from a repository setting that can be
+# changed without touching this file, and these jobs run repository-controlled
+# npm scripts — `prepare: husky` alone means repo code executes during `npm ci`.
+# Nothing here needs to write anything.
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Otherwise checkout leaves GITHUB_TOKEN in .git/config as an auth
+          # header, readable by anything that runs afterwards — including code
+          # the factory writes. No dependency here is git-sourced, so nothing
+          # needs it.
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -34,6 +47,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Otherwise checkout leaves GITHUB_TOKEN in .git/config as an auth
+          # header, readable by anything that runs afterwards — including code
+          # the factory writes. No dependency here is git-sourced, so nothing
+          # needs it.
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -46,6 +65,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Otherwise checkout leaves GITHUB_TOKEN in .git/config as an auth
+          # header, readable by anything that runs afterwards — including code
+          # the factory writes. No dependency here is git-sourced, so nothing
+          # needs it.
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
