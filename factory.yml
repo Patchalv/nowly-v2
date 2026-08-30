@@ -33,7 +33,16 @@ conventions: |
 
 # Extra egress hosts (FR-8.13). Resolved as an intersection with the factory's
 # own configuration, so naming one here is half the answer, not all of it.
-network: []
+#
+# src/app/layout.tsx imports Geist, Geist Mono and Inter from next/font/google,
+# and Next resolves those at BUILD time -- the CSS from fonts.googleapis.com and
+# the font files it names from fonts.gstatic.com. Without both, `npm run build`
+# fails in the factory's sandbox and the implement stage loses the repo's own
+# gate. Measured on issue #14: it could not build, confirmed the same failure on
+# an unmodified main, and fell back to reading the diff.
+network:
+  - fonts.googleapis.com
+  - fonts.gstatic.com
 
 # Opt-in permissions (FR-8.7). Empty is the restrictive resting state.
 # This repository is public, so its default branch has real branch protection
