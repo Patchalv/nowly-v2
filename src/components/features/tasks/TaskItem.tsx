@@ -81,42 +81,20 @@ export function TaskItem({
         onClick={() => onTaskClick(task)}
         className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left"
       >
-        {/* Title and badges */}
+        {/* Title */}
         <div className="flex w-full items-center gap-2">
           <span
             className={cn(
-              'truncate font-medium',
+              'truncate text-sm font-medium',
               task.is_completed && 'text-muted-foreground line-through'
             )}
           >
             {task.title}
           </span>
-
-          {/* Category badge */}
-          {task.category && (
-            <Badge
-              variant="secondary"
-              className={cn(
-                'flex-shrink-0 text-xs font-medium uppercase',
-                task.category.color &&
-                  `bg-${task.category.color}-100 text-${task.category.color}-700`
-              )}
-              style={
-                task.category.color
-                  ? {
-                      backgroundColor: `${task.category.color}15`,
-                      color: task.category.color,
-                    }
-                  : undefined
-              }
-            >
-              {task.category.name}
-            </Badge>
-          )}
         </div>
 
-        {/* Metadata row: due date and recurring icon */}
-        {(task.due_date || task.recurring_task_id) && (
+        {/* Metadata row: due date, recurring icon, and category badge */}
+        {(task.due_date || task.recurring_task_id || task.category) && (
           <div className="text-muted-foreground flex items-center gap-3 text-xs">
             {/* Due date */}
             {task.due_date && (
@@ -139,6 +117,28 @@ export function TaskItem({
                 <RefreshCw className="h-3 w-3" />
                 <span>Repeats</span>
               </div>
+            )}
+
+            {/* Category badge */}
+            {task.category && (
+              <Badge
+                variant="secondary"
+                className={cn(
+                  'ml-auto flex-shrink-0 text-xs font-medium uppercase',
+                  task.category.color &&
+                    `bg-${task.category.color}-100 text-${task.category.color}-700`
+                )}
+                style={
+                  task.category.color
+                    ? {
+                        backgroundColor: `${task.category.color}15`,
+                        color: task.category.color,
+                      }
+                    : undefined
+                }
+              >
+                {task.category.name}
+              </Badge>
             )}
           </div>
         )}
