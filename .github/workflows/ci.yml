@@ -1,0 +1,89 @@
+# CI for the software factory's Verify stage.
+#
+# The factory reads these jobs' conclusions through the GitHub Actions API and
+# will not mark a pull request ready unless every job named in `factory.yml`'s
+# `checks:` is present and green. The job keys below are those names — rename a
+# job here and you must rename it there in the same commit, or Verify waits for
+# a check that no longer exists and fails at its deadline.
+#
+# The factory cannot edit this file. Its machine account's token deliberately
+# lacks the `workflow` scope, so an agent cannot make its own gate pass.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Read-only, explicitly. The default comes from a repository setting that can be
+# changed without touching this file, and these jobs run repository-controlled
+# npm scripts — `prepare: husky` alone means repo code executes during `npm ci`.
+# Nothing here needs to write anything.
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Otherwise checkout leaves GITHUB_TOKEN in .git/config as an auth
+          # header, readable by anything that runs afterwards — including code
+          # the factory writes. No dependency here is git-sourced, so nothing
+          # needs it.
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Otherwise checkout leaves GITHUB_TOKEN in .git/config as an auth
+          # header, readable by anything that runs afterwards — including code
+          # the factory writes. No dependency here is git-sourced, so nothing
+          # needs it.
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Otherwise checkout leaves GITHUB_TOKEN in .git/config as an auth
+          # header, readable by anything that runs afterwards — including code
+          # the factory writes. No dependency here is git-sourced, so nothing
+          # needs it.
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # No secrets, deliberately. Measured 2026-08-30: a full production build
+      # with every Supabase, Sentry and site-URL variable unset exits 0 — every
+      # route that touches Supabase is server-rendered on demand, so nothing is
+      # needed at build time. Sentry warns that it will not create a release or
+      # upload source maps, and carries on.
+      #
+      # Keeping it that way is a security decision, not laziness. Secrets are
+      # readable by anything CI runs, and CI runs code the factory writes;
+      # SUPABASE_SERVICE_ROLE_KEY in particular bypasses row-level security.
+      # Add a secret here only when a job genuinely cannot run without it.
+      - run: npm run build
