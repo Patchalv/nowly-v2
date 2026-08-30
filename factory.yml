@@ -1,0 +1,44 @@
+version: 1
+
+# GitHub Actions JOB names — the keys under `jobs:` in .github/workflows/ci.yml.
+# Verify reads these through the Actions API and will not mark a pull request
+# ready unless every one of them is present and green. Rename a job there and
+# it must be renamed here in the same commit.
+checks:
+  - lint
+  - typecheck
+  - build
+
+# Free text, handed to the planning and implementation stage as this
+# repository's house style.
+conventions: |
+  Next.js (App Router) + TypeScript, on npm. Install with `npm ci`, never
+  `npm install` — the lockfile is authoritative.
+
+  Source lives under src/, imported via the `@/*` alias (`@/lib/x`, not a
+  relative path out of a feature folder). Layout: app/ routes, components/,
+  hooks/, lib/, schemas/, stores/, types/.
+
+  TypeScript is strict. Supabase types in src/types/database.ts are generated
+  by `npm run db:types` — edit the schema, not that file.
+
+  Prettier owns formatting; run `npm run format` before committing. A husky
+  pre-commit hook runs lint-staged and `npm run typecheck`, so a commit that
+  does not typecheck will not be created.
+
+  There is no test suite yet. `npm run lint`, `npm run typecheck` and
+  `npm run build` must all pass — they are the whole gate. If a change is
+  worth testing, say so in your plan rather than adding a test framework
+  without being asked.
+
+# Extra egress hosts (FR-8.13). Resolved as an intersection with the factory's
+# own configuration, so naming one here is half the answer, not all of it.
+network: []
+
+# Opt-in permissions (FR-8.7). Empty is the restrictive resting state.
+# This repository is public, so its default branch has real branch protection
+# and it does not need `unprotected-default-branch` (ADR-0003).
+grants: []
+
+# May only ever LOWER the factory's own caps (FR-8.8, min(repo, ceiling)).
+budgets: {}

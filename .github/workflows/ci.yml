@@ -40,3 +40,25 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # No secrets, deliberately. Measured 2026-08-30: a full production build
+      # with every Supabase, Sentry and site-URL variable unset exits 0 — every
+      # route that touches Supabase is server-rendered on demand, so nothing is
+      # needed at build time. Sentry warns that it will not create a release or
+      # upload source maps, and carries on.
+      #
+      # Keeping it that way is a security decision, not laziness. Secrets are
+      # readable by anything CI runs, and CI runs code the factory writes;
+      # SUPABASE_SERVICE_ROLE_KEY in particular bypasses row-level security.
+      # Add a secret here only when a job genuinely cannot run without it.
+      - run: npm run build
