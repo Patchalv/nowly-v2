@@ -1,24 +1,23 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Nowly
+
+Nowly is a task management app built around one idea: **manage when you do, not just when it's due.** It separates a _scheduled date_ (when you plan to work on something) from a _due date_ (a real, hard deadline), so planning your day doesn't dull the meaning of an actual deadline. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the reasoning behind this and other design decisions.
+
+## Tech Stack
+
+- **[Next.js](https://nextjs.org)** (App Router) with TypeScript — the app itself, under `src/app`.
+- **[Supabase](https://supabase.com)** — Postgres database, auth, and row-level security. Generated types live in `src/types/database.ts` (run `npm run db:types` to regenerate; don't hand-edit).
+- **[Sentry](https://sentry.io)** — error tracking and monitoring in production. See [Error Monitoring](#error-monitoring) below.
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the app. The `npm run dev` server auto-updates as you edit files under `src/`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+You'll need Supabase environment variables (project URL and anon key) in `.env.local` for auth and data to work locally.
 
 ## Error Monitoring
 
@@ -51,17 +50,12 @@ SENTRY_AUTH_TOKEN=your_sentry_auth_token
 
 For more details on error handling utilities, see [`src/lib/errors/README.md`](src/lib/errors/README.md).
 
-## Learn More
+## CI & Factory Onboarding
 
-To learn more about Next.js, take a look at the following resources:
+This repository is onboarded to a software factory that can plan and implement tickets autonomously:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `factory.yml` at the repo root marks the repository as factory-eligible. It names the CI jobs the factory's Verify stage gates on and carries the house style (conventions, permitted grants, network access) handed to the agent that plans and implements a ticket.
+- `.github/workflows/ci.yml` runs on every push to `main` and every pull request, with three jobs — `lint`, `typecheck`, and `build` — each named exactly as `factory.yml` expects. A pull request isn't marked ready until all three are green.
+- Work is handed to the factory via a GitHub issue using the [`factory-ticket`](.github/ISSUE_TEMPLATE/factory-ticket.md) template: a goal, observable acceptance criteria, and optionally an out-of-scope list and notes. Adding the `state:ready` label starts a run; nothing happens without it.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Before committing, run `npm run format`, and make sure `npm run lint`, `npm run typecheck`, and `npm run build` all pass — they're the same checks CI runs.
