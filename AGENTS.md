@@ -28,16 +28,8 @@ import { TaskCard } from '@/components/features/tasks';
 ### 2. Types — Zod as Source of Truth
 
 ```typescript
-// ✅ CORRECT: Derive types from Zod schemas
-// schemas/task.ts
-export const taskSchema = z.object({
-  id: z.string().uuid(),
-  title: z.string().min(1).max(100),
-  scheduled_date: z.string().date().nullable(),
-  due_date: z.string().date().nullable(),
-  priority: z.number().int().min(0).max(3),
-  is_completed: z.boolean().default(false),
-});
+// ✅ CORRECT: Derive types from Zod schemas (see src/schemas/)
+export const taskSchema = z.object({ /* ... */ });
 export type Task = z.infer<typeof taskSchema>;
 
 // ❌ WRONG: Separate interface definitions
@@ -111,28 +103,7 @@ See [`src/lib/onboarding/README.md`](src/lib/onboarding/README.md) for detailed 
 1. **`src/proxy.ts`** — Next.js 16 proxy (middleware) for optimistic redirects
 2. **`src/app/(protected)/layout.tsx`** — Server-side auth check as primary security layer
 
-```typescript
-// ✅ CORRECT: Protected layout validates JWT server-side
-// src/app/(protected)/layout.tsx
-export default async function ProtectedLayout({ children }) {
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-
-  if (error || !user) {
-    redirect('/login');
-  }
-
-  return <>{children}</>;
-}
-```
-
-**Route configuration in `src/proxy.ts`:**
-
-| Route Type | Routes                                                                            | Behavior                                      |
-| ---------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
-| Public     | `/`, `/login`, `/signup`, `/privacy`, `/terms`, `/auth/callback`                  | No auth required                              |
-| Auth       | `/login`, `/signup`                                                               | Redirect to `/today` if already authenticated |
-| Protected  | `/today`, `/daily`, `/weekly`, `/all-tasks`, `/backlog`, `/recurring`, `/account` | Redirect to `/login` if not authenticated     |
+Public, auth-only and protected route prefixes are listed in `src/proxy.ts`.
 
 **When adding new routes:**
 
@@ -147,46 +118,7 @@ export default async function ProtectedLayout({ children }) {
 
 ### 8. Error Handling — Sentry Integration
 
-**When to use error handlers:**
-
-```typescript
-// ✅ CORRECT: Use handleSupabaseError for database operations
-import { handleSupabaseError } from '@/lib/errors/supabase-error-handler';
-
-const { data, error } = await supabase.from('tasks').select('*');
-if (error) {
-  handleSupabaseError(error, {
-    table: 'tasks',
-    operation: 'select',
-    userId: user.id,
-    source: 'useTasks',
-  });
-  throw error; // Re-throw for UI error handling
-}
-
-// ✅ CORRECT: Use handleAuthError for authentication
-import {
-  handleAuthError,
-  getAuthErrorMessage,
-} from '@/lib/errors/auth-error-handler';
-
-const { error } = await supabase.auth.signInWithPassword({ email, password });
-if (error) {
-  handleAuthError(error, {
-    operation: 'signIn',
-    provider: 'email',
-    source: 'LoginForm',
-  });
-  toast.error(getAuthErrorMessage(error)); // User-friendly message
-  return;
-}
-
-// ❌ WRONG: Don't use console.error or ignore errors
-const { data, error } = await supabase.from('tasks').insert(task);
-if (error) console.error(error); // Won't be tracked in production
-```
-
-For breadcrumb and transaction (`Sentry.startSpan`) patterns, use the `sentry-instrumentation` skill.
+**When to use error handlers:** `handleSupabaseError` for database operations, `handleAuthError` (with `getAuthErrorMessage` for the user-facing message) for authentication — both in `src/lib/errors/`. Never `console.error` and never swallow the error; it won't be tracked in production.
 
 **Key principles:**
 
@@ -256,13 +188,6 @@ This prevents users from using `%` or `_` as wildcards in their search.
 - Default parameter values (make all parameters explicit)
 - Real-time subscriptions for single-user app (unnecessary overhead)
 
-## Performance Priorities (from Vercel React Best Practices)
-
-1. **CRITICAL: Eliminate async waterfalls** — Parallelize independent fetches
-2. **CRITICAL: Reduce bundle size** — Use direct imports, dynamic imports for heavy components
-3. **HIGH: Server-side performance** — Prefer Server Components, stream where possible
-4. **MEDIUM: Re-render optimization** — Memoize expensive computations, not everything
-
 ## Testing Requirements
 
 - New features require tests
@@ -273,8 +198,4 @@ This prevents users from using `%` or `_` as wildcards in their search.
 
 - Branch naming: `feature/task-card`, `fix/auth-redirect`, `refactor/hooks`
 - Commit messages: Conventional commits (`feat:`, `fix:`, `refactor:`, `docs:`)
-- **Pre-commit hooks** (Husky + lint-staged) automatically run:
-  - Format staged files with Prettier
-  - Lint staged TypeScript files with ESLint (auto-fix)
-  - Type-check entire project
-- If pre-commit fails, fix issues and commit again
+- Pre-commit hooks (Husky + lint-staged) run automatically; if they fail, fix and commit again
