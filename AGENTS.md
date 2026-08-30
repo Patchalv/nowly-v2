@@ -199,3 +199,94 @@ This prevents users from using `%` or `_` as wildcards in their search.
 - Branch naming: `feature/task-card`, `fix/auth-redirect`, `refactor/hooks`
 - Commit messages: Conventional commits (`feat:`, `fix:`, `refactor:`, `docs:`)
 - Pre-commit hooks (Husky + lint-staged) run automatically; if they fail, fix and commit again
+
+## This repository is worked by an autonomous factory
+
+Some pull requests here are opened by **`beavify`**, a machine account driven by
+[dark-factory](https://github.com/Patchalv/dark-factory) — a lights-out system
+that turns a written ticket into a pull request ready for review. It runs on a
+cron and needs no prompting.
+
+**It never merges anything.** Every change it makes arrives as a pull request a
+human has to approve, and it cannot push to `main`, force-push, or delete a
+branch. Those are not policies it follows; they are actions its code cannot
+express.
+
+### Giving it work
+
+Open an issue and label it `state:ready`. The issue body needs two things or it
+is rejected before anything is spent:
+
+1. **A goal in prose** — what to build, not only what to accept.
+2. **An `## Acceptance criteria` heading** with at least one criterion under it.
+
+A rejected ticket gets a comment saying exactly what was missing. Fix it and
+re-apply `state:ready` to start a fresh run.
+
+Labels are how the factory reports where a run is. Do not hand-edit them to make
+something happen — only `state:ready` starts work.
+
+| Label                      | Meaning                                                                                                           |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `state:ready`              | Waiting to be picked up. **You set this one**                                                                     |
+| `state:in-progress`        | A run is working on it                                                                                            |
+| `state:needs-human-input`  | Escalated — it asked a question and is waiting. Answer **in a comment on the issue**; that is where it reads from |
+| `state:pr-ready`           | Pull request open, waiting on human review                                                                        |
+| `state:rejected-at-intake` | Refused before spending, with reasons in a comment                                                                |
+| `state:done`               | Closed                                                                                                            |
+| `run:stop`                 | **Kill switch.** Add it to an issue to stop that run                                                              |
+
+Only comments from repository collaborators with push access are read. A comment
+from anyone else — including CodeRabbit and the Vercel bot — is seen, marked
+read, and never acted on.
+
+### The one rule that is easy to break by accident
+
+**Never commit to a `factory/...` branch.** A human commit on a run's branch
+permanently ends the factory's involvement with that run. It is one-way and
+there is no hand-back: the run stops working, stays open only to notice the
+eventual merge, and no amount of reverting brings it back.
+
+This is deliberate — if you have started editing the work yourself, the factory
+racing you is worse than it stopping. But it means "just fixing a typo" on its
+branch retires the run. If you want a change, request it in a pull request
+review and let the run make it, or take the branch over knowing the factory is
+done with it.
+
+### `factory.yml`
+
+At the repository root, read **from `main` only** — never from a working branch,
+so an agent blocked by a permission cannot edit the file on its own branch and
+grant itself the permission.
+
+Three things about it that are not obvious:
+
+- **`checks:` names Actions job names — the keys under `jobs:` in
+  `.github/workflows/ci.yml`, not workflow names, not check names.** Renaming a
+  job without updating `factory.yml` in the same commit makes every run fail
+  verification while CI looks green. Ours are `lint`, `typecheck` and `build`.
+- **`network:` and `grants:` are requests, not grants.** They resolve as an
+  intersection with the factory's own configuration, which lives in a repository
+  no agent pushes to. Adding a host here alone does nothing except produce a
+  warning. The two font hosts are there because `next/font/google` resolves at
+  build time and the sandbox otherwise cannot run `npm run build`.
+- **`budgets:` can only narrow.** A number above the factory's cap is ignored.
+
+### Working alongside it
+
+- The plan a run intends to follow is posted as a **comment on the issue** before
+  implementation starts. That is the cheapest place to redirect it.
+- The pull request description carries the **assumptions ledger** — every
+  judgement call the run made rather than escalating. Read it; it is usually
+  where a disagreement will be.
+- A run reviews its own work in an isolated session that sees only the ticket,
+  the plan, and the diff. It cannot see the implementer's reasoning, which is the
+  point, but it also means a pull request whose justification lives outside the
+  diff will read as unjustified.
+- CI is the only automated gate, and this repo has no test suite — `lint`,
+  `typecheck` and `build` are the whole of it, plus a human approving every pull
+  request. A run that adds the first test is a good ticket to write.
+- The factory's sandbox has no browser and no Supabase credentials, so it cannot
+  run `npm run dev` or check anything visually. A ticket whose acceptance turns
+  on how something _looks_ will come back verified by reading the diff. Say what
+  the change should be, not only what it should look like.
