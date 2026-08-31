@@ -6,6 +6,7 @@ import {
   addWeeks,
   setMonth,
   setDate,
+  startOfDay,
   startOfMonth,
   endOfMonth,
   getDay,
@@ -375,6 +376,204 @@ export function calculateNextTaskDate(
 
     default:
       return baseDate;
+  }
+}
+
+/**
+ * Find the next weekday occurrence on or after (inclusive of) a given date,
+ * honouring a week interval. Unlike findNextWeekdayWithInterval (which
+ * always starts searching the day *after* fromDate, since it advances from
+ * a known prior occurrence), this treats fromDate's own week as interval 0
+ * so it can return fromDate itself when it already matches the pattern.
+ */
+function findNextWeekdayOnOrAfterInclusive(
+  fromDate: Date,
+  daysOfWeek: number[],
+  intervalWeeks: number
+): Date {
+  const sortedDays = [...daysOfWeek].sort((a, b) => a - b);
+  let tempDate = fromDate;
+  const weekInterval = intervalWeeks || 1;
+
+  const baseWeekStart = addDays(
+    fromDate,
+    -convertJsDayToOurFormat(getDay(fromDate))
+  );
+
+  for (let i = 0; i < 60; i++) {
+    // Safety: max 60 days
+    const adjustedDay = convertJsDayToOurFormat(getDay(tempDate));
+
+    if (sortedDays.includes(adjustedDay)) {
+      if (weekInterval === 1) {
+        return tempDate;
+      }
+
+      const currentWeekStart = addDays(
+        tempDate,
+        -convertJsDayToOurFormat(getDay(tempDate))
+      );
+      const weeksPassed = differenceInCalendarWeeks(
+        currentWeekStart,
+        baseWeekStart,
+        { weekStartsOn: 1 } // Monday
+      );
+
+      if (weeksPassed % weekInterval === 0) {
+        return tempDate;
+      }
+    }
+
+    tempDate = addDays(tempDate, 1);
+  }
+
+  // Fallback: just add interval weeks
+  return addWeeks(fromDate, weekInterval);
+}
+
+/**
+ * Find the next monthly occurrence on or after (inclusive of) a given date.
+ * Treats fromDate's own month as interval 0, so a month whose target day
+ * hasn't happened yet this cycle is considered before jumping a full
+ * interval ahead.
+ */
+function findNextMonthlyOnOrAfterInclusive(
+  fromDate: Date,
+  dayOfMonth: number | null | undefined,
+  weekOfMonth: number | null | undefined,
+  daysOfWeek: number[] | null | undefined,
+  intervalMonths: number
+): Date {
+  const monthInterval = intervalMonths || 1;
+  const baseMonth = startOfMonth(fromDate);
+  const today = startOfDay(fromDate);
+
+  const usesNthWeekday =
+    weekOfMonth !== undefined &&
+    weekOfMonth !== null &&
+    daysOfWeek !== undefined &&
+    daysOfWeek !== null &&
+    daysOfWeek.length > 0;
+
+  for (let i = 0; i < 60; i += monthInterval) {
+    const candidateMonth = addMonths(baseMonth, i);
+    let candidateDate: Date | null;
+
+    if (usesNthWeekday) {
+      candidateDate = findNthWeekdayOfMonth(
+        candidateMonth.getFullYear(),
+        candidateMonth.getMonth(),
+        daysOfWeek![0],
+        weekOfMonth!
+      );
+    } else if (dayOfMonth === 31) {
+      candidateDate = endOfMonth(candidateMonth);
+    } else {
+      const targetDay = dayOfMonth || 1;
+      const lastDayOfMonth = endOfMonth(candidateMonth).getDate();
+      candidateDate = setDate(
+        candidateMonth,
+        Math.min(targetDay, lastDayOfMonth)
+      );
+    }
+
+    if (candidateDate && candidateDate >= today) {
+      return candidateDate;
+    }
+  }
+
+  // Fallback: shouldn't be reached in practice (60 iterations covers 5+ years)
+  return addMonths(fromDate, monthInterval);
+}
+
+/**
+ * Find the next yearly occurrence on or after (inclusive of) a given date.
+ * Checks fromDate's own year first before advancing.
+ */
+function findNextYearlyOnOrAfterInclusive(
+  fromDate: Date,
+  monthOfYear: number | null | undefined,
+  dayOfMonth: number | null | undefined
+): Date {
+  const today = startOfDay(fromDate);
+
+  for (let i = 0; i < 6; i++) {
+    let candidate = new Date(fromDate.getFullYear() + i, 0, 1);
+    if (monthOfYear) {
+      candidate = setMonth(candidate, monthOfYear - 1);
+    }
+    if (dayOfMonth) {
+      const lastDay = endOfMonth(candidate).getDate();
+      candidate = setDate(candidate, Math.min(dayOfMonth, lastDay));
+    }
+    if (candidate >= today) {
+      return candidate;
+    }
+  }
+
+  // Fallback: shouldn't be reached in practice (6 years checked)
+  return addYears(fromDate, 1);
+}
+
+/**
+ * Calculates the next occurrence at or after (inclusive of) a reference
+ * date, given a recurrence pattern. Used when a template's recurrence rule
+ * is edited: unlike calculateNextTaskDate (which advances strictly past a
+ * known prior occurrence), this answers "if this pattern started fresh
+ * today, what's the first date it lands on?" so the cursor never rewinds
+ * into the past and never skips a today-that-already-matches.
+ *
+ * interval_days-based types (fixed_daily, interval_from_completion) have no
+ * calendar anchor once the pattern changes - there's no "correct" prior
+ * cursor to count from other than the one we're deliberately not using - so
+ * the new cycle simply starts on the reference date itself.
+ */
+export function calculateNextOccurrenceOnOrAfter(
+  recurringTask: Partial<RecurringTask>,
+  referenceDate: Date
+): Date {
+  const {
+    recurrence_type,
+    interval_weeks,
+    interval_months,
+    days_of_week,
+    day_of_month,
+    week_of_month,
+    month_of_year,
+  } = recurringTask;
+
+  const today = startOfDay(referenceDate);
+
+  switch (recurrence_type) {
+    case 'interval_from_completion':
+    case 'fixed_daily':
+      return today;
+
+    case 'fixed_weekly':
+      return findNextWeekdayOnOrAfterInclusive(
+        today,
+        days_of_week || [],
+        interval_weeks || 1
+      );
+
+    case 'fixed_monthly':
+      return findNextMonthlyOnOrAfterInclusive(
+        today,
+        day_of_month,
+        week_of_month,
+        days_of_week,
+        interval_months || 1
+      );
+
+    case 'fixed_yearly':
+      return findNextYearlyOnOrAfterInclusive(
+        today,
+        month_of_year,
+        day_of_month
+      );
+
+    default:
+      return today;
   }
 }
 
