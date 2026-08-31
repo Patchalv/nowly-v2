@@ -226,19 +226,42 @@ re-apply `state:ready` to start a fresh run.
 Labels are how the factory reports where a run is. Do not hand-edit them to make
 something happen — only `state:ready` starts work.
 
-| Label                      | Meaning                                                                                                           |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `state:ready`              | Waiting to be picked up. **You set this one**                                                                     |
-| `state:in-progress`        | A run is working on it                                                                                            |
-| `state:needs-human-input`  | Escalated — it asked a question and is waiting. Answer **in a comment on the issue**; that is where it reads from |
-| `state:pr-ready`           | Pull request open, waiting on human review                                                                        |
-| `state:rejected-at-intake` | Refused before spending, with reasons in a comment                                                                |
-| `state:done`               | Closed                                                                                                            |
-| `run:stop`                 | **Kill switch.** Add it to an issue to stop that run                                                              |
+| Label                      | Meaning                                                                                                              |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `state:ready`              | Waiting to be picked up. **You set this one.** A ticket blocked by an open issue stays here until its blockers close |
+| `state:in-progress`        | A run is working on it                                                                                               |
+| `state:needs-human-input`  | Escalated — it asked a question and is waiting. Answer **in a comment on the issue**; that is where it reads from    |
+| `state:pr-ready`           | Pull request open, waiting on human review                                                                           |
+| `state:rejected-at-intake` | Refused before spending, with reasons in a comment                                                                   |
+| `state:done`               | Closed                                                                                                               |
+| `run:stop`                 | **Kill switch.** Add it to an issue to stop that run                                                                 |
 
 Only comments from repository collaborators with push access are read. A comment
 from anyone else — including CodeRabbit and the Vercel bot — is seen, marked
 read, and never acted on.
+
+### Running a plan in order
+
+A `state:ready` ticket starts when its turn comes, and its turn is decided by
+GitHub's own issue dependencies. Link one issue as blocked by another — the
+Relationships panel on the issue — and the factory leaves it alone until every
+blocker has closed.
+
+That is how you hand it a plan as several tickets, mark them all Ready, and get
+them one at a time. Every pull request it opens says `Closes #N`, so merging one
+closes its ticket and the next becomes eligible within a minute or two.
+
+Three things to know:
+
+- **Link the blockers before you mark anything Ready.** In the window where a
+  ticket is Ready and its blocker is not yet linked, there is nothing to read
+  and the factory will start it.
+- **Any close satisfies a blocker, including "not planned".** If you abandon a
+  ticket mid-chain its dependents become eligible immediately, against plans
+  that assumed its work exists. Edit or close them too.
+- **Chains get less accurate the further down they go**, because the later
+  tickets were written against a repository the earlier ones have since changed.
+  Three to five is comfortable; fifteen is not.
 
 ### The one rule that is easy to break by accident
 
