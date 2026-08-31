@@ -197,40 +197,65 @@ export async function updateRecurringTaskAndInstances(
     if (data.is_active !== undefined)
       recurringUpdate.is_active = data.is_active;
 
-    // Only recompute next_due_date when the recurrence rule itself changed
-    // (never on unrelated edits, and never rewound to start_date).
-    if (
-      data.recurrence_type !== undefined &&
-      recurrenceRuleChanged(
-        {
-          recurrence_type: data.recurrence_type,
-          interval_days: data.interval_days,
-          interval_weeks: data.interval_weeks,
-          interval_months: data.interval_months,
-          days_of_week: data.days_of_week,
-          day_of_month: data.day_of_month,
-          week_of_month: data.week_of_month,
-          month_of_year: data.month_of_year,
-        },
-        existing
-      )
-    ) {
-      recurringUpdate.next_due_date = format(
-        calculateNextOccurrenceOnOrAfter(
-          {
-            recurrence_type: data.recurrence_type,
-            interval_days: data.interval_days,
-            interval_weeks: data.interval_weeks,
-            interval_months: data.interval_months,
-            days_of_week: data.days_of_week,
-            day_of_month: data.day_of_month,
-            week_of_month: data.week_of_month,
-            month_of_year: data.month_of_year,
-          },
-          new Date()
-        ),
-        'yyyy-MM-dd'
-      );
+    // Any of these being present in the payload means the rule may have
+    // changed - gating this on recurrence_type alone would silently skip
+    // the recompute (and reintroduce a variant of this ticket's bug) for a
+    // hypothetical future caller that patches e.g. just interval_days
+    // without resending recurrence_type.
+    const ruleFieldProvided =
+      data.recurrence_type !== undefined ||
+      data.interval_days !== undefined ||
+      data.interval_weeks !== undefined ||
+      data.interval_months !== undefined ||
+      data.days_of_week !== undefined ||
+      data.day_of_month !== undefined ||
+      data.week_of_month !== undefined ||
+      data.month_of_year !== undefined;
+
+    if (ruleFieldProvided) {
+      // day_of_month / week_of_month+days_of_week are mutually exclusive
+      // ways of expressing a monthly pattern (days_of_week doubles as the
+      // required field for a weekly pattern). The dialog always resends
+      // whichever one currently applies as a complete unit, using
+      // `undefined` to mean "not this pattern" rather than "unchanged" - so
+      // if any of the three was touched, trust the payload for all three;
+      // only fall back to the stored values when none of them were touched,
+      // otherwise a partial patch to an unrelated field (e.g.
+      // interval_months) would stack a new week_of_month on top of a stale
+      // leftover day_of_month, or vice versa.
+      const monthlyPatternProvided =
+        data.day_of_month !== undefined ||
+        data.week_of_month !== undefined ||
+        data.days_of_week !== undefined;
+
+      const nextRuleState = {
+        recurrence_type: (data.recurrence_type ??
+          existing.recurrence_type) as RecurrenceType,
+        interval_days:
+          data.interval_days ?? existing.interval_days ?? undefined,
+        interval_weeks:
+          data.interval_weeks ?? existing.interval_weeks ?? undefined,
+        interval_months:
+          data.interval_months ?? existing.interval_months ?? undefined,
+        month_of_year:
+          data.month_of_year ?? existing.month_of_year ?? undefined,
+        day_of_month: monthlyPatternProvided
+          ? data.day_of_month
+          : (existing.day_of_month ?? undefined),
+        week_of_month: monthlyPatternProvided
+          ? data.week_of_month
+          : (existing.week_of_month ?? undefined),
+        days_of_week: monthlyPatternProvided
+          ? data.days_of_week
+          : (existing.days_of_week ?? undefined),
+      };
+
+      if (recurrenceRuleChanged(nextRuleState, existing)) {
+        recurringUpdate.next_due_date = format(
+          calculateNextOccurrenceOnOrAfter(nextRuleState, new Date()),
+          'yyyy-MM-dd'
+        );
+      }
     }
 
     // Update recurring task master
