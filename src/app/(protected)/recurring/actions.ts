@@ -2,58 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { format } from 'date-fns';
-import { calculateNextOccurrenceOnOrAfter } from '@/lib/utils/recurrence';
+import { buildRecurringTaskUpdate } from '@/lib/utils/recurring-task-update';
 import type {
   CreateRecurringTaskInput,
-  RecurrenceType,
   UpdateRecurringTaskInput,
 } from '@/schemas/recurring-task';
-import type { Database } from '@/types/database';
-
-type RecurringTaskUpdate =
-  Database['public']['Tables']['recurring_tasks']['Update'];
-type RecurringTaskRow = Database['public']['Tables']['recurring_tasks']['Row'];
-
-/**
- * Recurrence-defining fields. Editing any of these (and only these) means
- * the template's schedule itself changed, so next_due_date must be
- * recomputed. Editing anything else (title, description, start_date,
- * end_date, etc.) must never touch next_due_date.
- */
-function recurrenceRuleChanged(
-  next: {
-    recurrence_type: RecurrenceType;
-    interval_days?: number;
-    interval_weeks?: number;
-    interval_months?: number;
-    days_of_week?: number[];
-    day_of_month?: number;
-    week_of_month?: number;
-    month_of_year?: number;
-  },
-  existing: RecurringTaskRow
-): boolean {
-  const sameDaysOfWeek = (a?: number[] | null, b?: number[] | null) => {
-    const normalize = (arr?: number[] | null) =>
-      arr && arr.length > 0 ? [...arr].sort((x, y) => x - y) : null;
-    const na = normalize(a);
-    const nb = normalize(b);
-    if (na === null || nb === null) return na === nb;
-    return na.length === nb.length && na.every((v, i) => v === nb[i]);
-  };
-
-  return (
-    next.recurrence_type !== existing.recurrence_type ||
-    (next.interval_days ?? null) !== existing.interval_days ||
-    (next.interval_weeks ?? null) !== existing.interval_weeks ||
-    (next.interval_months ?? null) !== existing.interval_months ||
-    (next.day_of_month ?? null) !== existing.day_of_month ||
-    (next.week_of_month ?? null) !== existing.week_of_month ||
-    (next.month_of_year ?? null) !== existing.month_of_year ||
-    !sameDaysOfWeek(next.days_of_week, existing.days_of_week)
-  );
-}
 
 /**
  * Create a new recurring task and generate the first task instance
@@ -166,97 +119,10 @@ export async function updateRecurringTaskAndInstances(
       return { error: fetchError?.message ?? 'Recurring task not found' };
     }
 
-    // Whitelist exactly the fields this action is allowed to write, so the
+    // Whitelists exactly the fields this action is allowed to write and
+    // recomputes next_due_date itself (see recurring-task-update.ts) so the
     // parameter type and the actual update payload can never drift apart.
-    const recurringUpdate: RecurringTaskUpdate = {};
-    if (data.title !== undefined) recurringUpdate.title = data.title;
-    if (data.description !== undefined)
-      recurringUpdate.description = data.description;
-    if (data.category_id !== undefined)
-      recurringUpdate.category_id = data.category_id;
-    if (data.priority !== undefined) recurringUpdate.priority = data.priority;
-    if (data.recurrence_type !== undefined)
-      recurringUpdate.recurrence_type = data.recurrence_type;
-    if (data.interval_days !== undefined)
-      recurringUpdate.interval_days = data.interval_days;
-    if (data.interval_weeks !== undefined)
-      recurringUpdate.interval_weeks = data.interval_weeks;
-    if (data.interval_months !== undefined)
-      recurringUpdate.interval_months = data.interval_months;
-    if (data.days_of_week !== undefined)
-      recurringUpdate.days_of_week = data.days_of_week;
-    if (data.day_of_month !== undefined)
-      recurringUpdate.day_of_month = data.day_of_month;
-    if (data.week_of_month !== undefined)
-      recurringUpdate.week_of_month = data.week_of_month;
-    if (data.month_of_year !== undefined)
-      recurringUpdate.month_of_year = data.month_of_year;
-    if (data.start_date !== undefined)
-      recurringUpdate.start_date = data.start_date;
-    if (data.end_date !== undefined) recurringUpdate.end_date = data.end_date;
-    if (data.is_active !== undefined)
-      recurringUpdate.is_active = data.is_active;
-
-    // Any of these being present in the payload means the rule may have
-    // changed - gating this on recurrence_type alone would silently skip
-    // the recompute (and reintroduce a variant of this ticket's bug) for a
-    // hypothetical future caller that patches e.g. just interval_days
-    // without resending recurrence_type.
-    const ruleFieldProvided =
-      data.recurrence_type !== undefined ||
-      data.interval_days !== undefined ||
-      data.interval_weeks !== undefined ||
-      data.interval_months !== undefined ||
-      data.days_of_week !== undefined ||
-      data.day_of_month !== undefined ||
-      data.week_of_month !== undefined ||
-      data.month_of_year !== undefined;
-
-    if (ruleFieldProvided) {
-      // day_of_month / week_of_month+days_of_week are mutually exclusive
-      // ways of expressing a monthly pattern (days_of_week doubles as the
-      // required field for a weekly pattern). The dialog always resends
-      // whichever one currently applies as a complete unit, using
-      // `undefined` to mean "not this pattern" rather than "unchanged" - so
-      // if any of the three was touched, trust the payload for all three;
-      // only fall back to the stored values when none of them were touched,
-      // otherwise a partial patch to an unrelated field (e.g.
-      // interval_months) would stack a new week_of_month on top of a stale
-      // leftover day_of_month, or vice versa.
-      const monthlyPatternProvided =
-        data.day_of_month !== undefined ||
-        data.week_of_month !== undefined ||
-        data.days_of_week !== undefined;
-
-      const nextRuleState = {
-        recurrence_type: (data.recurrence_type ??
-          existing.recurrence_type) as RecurrenceType,
-        interval_days:
-          data.interval_days ?? existing.interval_days ?? undefined,
-        interval_weeks:
-          data.interval_weeks ?? existing.interval_weeks ?? undefined,
-        interval_months:
-          data.interval_months ?? existing.interval_months ?? undefined,
-        month_of_year:
-          data.month_of_year ?? existing.month_of_year ?? undefined,
-        day_of_month: monthlyPatternProvided
-          ? data.day_of_month
-          : (existing.day_of_month ?? undefined),
-        week_of_month: monthlyPatternProvided
-          ? data.week_of_month
-          : (existing.week_of_month ?? undefined),
-        days_of_week: monthlyPatternProvided
-          ? data.days_of_week
-          : (existing.days_of_week ?? undefined),
-      };
-
-      if (recurrenceRuleChanged(nextRuleState, existing)) {
-        recurringUpdate.next_due_date = format(
-          calculateNextOccurrenceOnOrAfter(nextRuleState, new Date()),
-          'yyyy-MM-dd'
-        );
-      }
-    }
+    const recurringUpdate = buildRecurringTaskUpdate(data, existing);
 
     // Update recurring task master
     const { error: recurringError } = await supabase

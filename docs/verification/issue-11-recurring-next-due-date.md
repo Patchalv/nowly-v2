@@ -8,17 +8,25 @@ test suite) - it's a recorded, reproducible transcript so a reviewer doesn't
 have to redo the work to confirm the fix.
 
 There's no Docker daemon, Supabase CLI project link, or Supabase credentials
-in the sandbox this was produced in, so this exercises the exact `UPDATE`
-statement shapes the new code in `actions.ts` issues directly against a
-local Postgres 16 server loaded with this repo's own
-`supabase/migrations/*.sql`, rather than going through a running
-Next.js + PostgREST stack.
+in the sandbox this was produced in, so this drives the **real, unmodified**
+`buildRecurringTaskUpdate` (`src/lib/utils/recurring-task-update.ts`, which
+itself imports the real `src/lib/utils/recurrence.ts` unmodified) exactly
+the way `updateRecurringTaskAndInstances` does - fetch the existing row,
+call `buildRecurringTaskUpdate(data, existing)`, then `UPDATE ... SET
+<result>` - with only the network layer swapped: a direct `pg` connection to
+a local Postgres 16 server loaded with this repo's own
+`supabase/migrations/*.sql`, instead of a live Supabase/PostgREST call. The
+harness imports the production file itself (verified byte-identical to what
+shipped in this PR - see "Reproducing this" below), so it is exercising the
+actual whitelist-building, rule-change-gating and merge logic, not a
+hand-typed description of it.
 
 ## Setup
 
 ```bash
 sudo pg_ctlcluster 16 main start
 sudo -u postgres psql -c "CREATE DATABASE recurring_verify;"
+sudo -u postgres psql -c "CREATE ROLE verify_user LOGIN PASSWORD 'verify_pw' SUPERUSER;"
 ```
 
 A minimal stub of the pieces of Supabase's `auth` schema these migrations
@@ -69,137 +77,145 @@ still succeed (each statement in the file is independent), only the
 migrations 10/12/13) `generate_next_recurring_instance()` function bodies
 fail to create. Neither is needed to verify `next_due_date` behaviour, so a
 one-off local stand-in for `update_updated_at()` was created purely to quiet
-the noise:
+the noise. This typo was not touched in this PR's diff - it's out of scope
+for this ticket - but is worth its own follow-up.
 
-```sql
-CREATE OR REPLACE FUNCTION update_updated_at() RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+## Harness
+
+```ts
+// harness.ts - imports the real production file unmodified.
+import { Client } from 'pg';
+import { buildRecurringTaskUpdate } from './src/lib/utils/recurring-task-update';
+
+const client = new Client({
+  host: '127.0.0.1',
+  port: 5432,
+  user: 'verify_user',
+  password: 'verify_pw',
+  database: 'recurring_verify',
+});
+
+async function fetchExisting(id: string) {
+  const { rows } = await client.query(
+    'SELECT * FROM public.recurring_tasks WHERE id = $1',
+    [id]
+  );
+  return rows[0];
+}
+
+async function applyUpdate(id: string, update: Record<string, unknown>) {
+  const keys = Object.keys(update);
+  if (keys.length === 0) return;
+  const setClause = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+  const values = keys.map((k) => update[k]);
+  await client.query(
+    `UPDATE public.recurring_tasks SET ${setClause} WHERE id = $1`,
+    [id, ...values]
+  );
+}
+
+// existing row fetched from Postgres -> real buildRecurringTaskUpdate call
+// -> real object written back with the real UPDATE statement it produces.
+const existing = await fetchExisting(id);
+const update = buildRecurringTaskUpdate(payload, existing);
+await applyUpdate(id, update);
 ```
 
-This typo was not touched in this PR's diff - it's out of scope for this
-ticket - but is worth its own follow-up.
+`buildRecurringTaskUpdate` and `calculateNextOccurrenceOnOrAfter` were
+loaded via a `tsconfig.json` `paths` mapping (`"@/*": ["src/*"]`) so the
+production files could be copied into the harness project and imported
+**without editing a single line of them** - `pg`/`tsx` were installed with
+`--no-save` (not added to this repo's `package.json`/lockfile).
 
 ## Scenario 1: title-only edit leaves `next_due_date` untouched
 
 Seeded a `fixed_daily` template whose `next_due_date` (2025-06-15) had
-already advanced well past its `start_date` (2025-01-01):
-
-```sql
-INSERT INTO public.recurring_tasks (
-  id, user_id, workspace_id, title, description, priority,
-  recurrence_type, interval_days, start_date, next_due_date,
-  is_active, is_paused, occurrences_generated
-) VALUES (
-  '33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111',
-  '22222222-2222-2222-2222-222222222222', 'Water the plants', NULL, 0,
-  'fixed_daily', 1, '2025-01-01', '2025-06-15', true, false, 10
-);
-```
-
-Then ran the exact `UPDATE` `updateRecurringTaskAndInstances` issues when no
-recurrence-rule field is present in the edit payload (`next_due_date` is not
-mentioned at all):
-
-```sql
-UPDATE public.recurring_tasks
-SET title = 'Water the plants daily', description = NULL, category_id = NULL,
-    priority = 0, start_date = '2025-01-01', end_date = NULL, is_active = true
-WHERE id = '33333333-3333-3333-3333-333333333333';
-```
-
-**Result:** `next_due_date` stayed `2025-06-15`.
+already advanced well past its `start_date` (2025-01-01), then called the
+real `buildRecurringTaskUpdate` with the payload a title-only save from
+`RecurringDialog` produces (the rest of the recurrence config resent
+unchanged) and applied whatever it returned:
 
 ```
-                  title          | recurrence_type | interval_days | start_date | next_due_date
-------------------------+-----------------+---------------+------------+---------------
- Water the plants daily | fixed_daily     |             1 | 2025-01-01 | 2025-06-15
+Before: { title: 'Water the plants', recurrence_type: 'fixed_daily', next_due_date: 2025-06-15 }
 
-NOTICE:  PASS scenario 1: next_due_date unchanged at 2025-06-15
+buildRecurringTaskUpdate returned:
+{ title: 'Water the plants daily', priority: 0, recurrence_type: 'fixed_daily',
+  interval_days: 1, start_date: '2025-01-01', is_active: true }
+  <- note: no next_due_date key at all
+
+SQL:    UPDATE public.recurring_tasks SET title = $2, priority = $3,
+          recurrence_type = $4, interval_days = $5, start_date = $6,
+          is_active = $7 WHERE id = $1
+Params: ["33333333-...", "Water the plants daily", 0, "fixed_daily", 1, "2025-01-01", true]
+
+After: { title: 'Water the plants daily', next_due_date: 2025-06-15 }
+
+PASS: scenario 1 next_due_date unchanged = 2025-06-15 (expected 2025-06-15)
 ```
 
 ## Scenario 2: a full recurrence-rule change recomputes to "today", not `start_date`
 
-Same row, now editing the recurrence rule itself (`fixed_daily` ->
-`fixed_weekly`, every Monday). `next_due_date` computed by
-`calculateNextOccurrenceOnOrAfter` for a reference date of `2026-08-31`
-(itself a Monday) is `2026-08-31`:
-
-```sql
-UPDATE public.recurring_tasks
-SET recurrence_type = 'fixed_weekly', interval_days = NULL, interval_weeks = 1,
-    days_of_week = ARRAY[0], next_due_date = '2026-08-31'
-WHERE id = '33333333-3333-3333-3333-333333333333';
-```
-
-**Result:** `next_due_date` became `2026-08-31` - today, not `start_date`
-(`2025-01-01`) and not the stale `2025-06-15`.
+Same row, now calling `buildRecurringTaskUpdate` with a payload that changes
+the recurrence rule itself (`fixed_daily` -> `fixed_weekly`, every Monday).
+The sandbox's clock read 2026-08-31 (a Monday) when this ran:
 
 ```
-         title          | recurrence_type | interval_weeks | days_of_week | start_date | next_due_date
-------------------------+-----------------+----------------+--------------+------------+---------------
- Water the plants daily | fixed_weekly    |              1 | {0}          | 2025-01-01 | 2026-08-31
+buildRecurringTaskUpdate returned:
+{ recurrence_type: 'fixed_weekly', interval_weeks: 1, days_of_week: [0],
+  next_due_date: '2026-08-31' }
+  <- next_due_date IS present this time, computed by the real
+     calculateNextOccurrenceOnOrAfter, not copied from start_date
 
-NOTICE:  PASS scenario 2: next_due_date recomputed to 2026-08-31 (start_date 2025-01-01 untouched)
+SQL:    UPDATE public.recurring_tasks SET recurrence_type = $2,
+          interval_weeks = $3, days_of_week = $4, next_due_date = $5
+          WHERE id = $1
+Params: ["33333333-...", "fixed_weekly", 1, [0], "2026-08-31"]
+
+After: { recurrence_type: 'fixed_weekly', interval_weeks: 1, days_of_week: [0],
+         start_date: '2025-01-01', next_due_date: '2026-08-31' }
+
+PASS: next_due_date (2026-08-31) !== start_date (2025-01-01)
 ```
 
 ## Scenario 3: a partial patch that changes only `interval_months` still recomputes
 
-This exercises the fix for the second review round: the recompute must not
+This exercises the fix from the second review round: the recompute must not
 be gated on `recurrence_type` being present in the payload, or a caller that
 patches just one rule field (without resending `recurrence_type`) would
 silently skip the recompute.
 
-Seeded a `fixed_monthly` template, day 5 of every month:
-
-```sql
-INSERT INTO public.recurring_tasks (
-  id, user_id, workspace_id, title, description, priority,
-  recurrence_type, interval_months, day_of_month, start_date, next_due_date,
-  is_active, is_paused, occurrences_generated
-) VALUES (
-  '44444444-4444-4444-4444-444444444444', '11111111-1111-1111-1111-111111111111',
-  '22222222-2222-2222-2222-222222222222', 'Pay rent', NULL, 0,
-  'fixed_monthly', 1, 5, '2025-01-01', '2025-06-05', true, false, 5
-);
-```
-
-Simulated payload: `{ interval_months: 3 }` only - no `recurrence_type`, no
-`day_of_month`/`week_of_month`/`days_of_week`. Checked in isolation (via
-`npx tsx`, not added as a project dependency) that the new gating condition
-fires where the old one wouldn't, and that `day_of_month` correctly falls
-back to the stored value of `5` (not clobbered) when computing the new date:
+Seeded a `fixed_monthly` template, day 5 of every month, then called
+`buildRecurringTaskUpdate` with a payload that is _only_
+`{ interval_months: 3 }` - `recurrence_type` and `day_of_month` are not
+present in the object at all, not just `undefined`-valued keys:
 
 ```
-OLD gate (recurrence_type-only) would recompute: false   <- bug: never runs
-NEW gate (any rule field) would recompute: true
-Computed next_due_date for the merged state: 2026-11-05 (expect 2026-11-05:
-day 5 already passed this Aug, +3-month interval => November)
+Before: { recurrence_type: 'fixed_monthly', interval_months: 1, day_of_month: 5,
+          next_due_date: 2025-06-05 }
+
+buildRecurringTaskUpdate returned:
+{ interval_months: 3, next_due_date: '2026-11-05' }
+
+SQL:    UPDATE public.recurring_tasks SET interval_months = $2,
+          next_due_date = $3 WHERE id = $1
+Params: ["44444444-...", 3, "2026-11-05"]
+
+After: { recurrence_type: 'fixed_monthly', interval_months: 3, day_of_month: 5,
+         next_due_date: '2026-11-05' }
+
+PASS: scenario 3 interval_months = 3 (expected 3)
+PASS: scenario 3 day_of_month preserved (not clobbered) = 5 (expected 5)
+PASS: scenario 3 next_due_date recomputed = 2026-11-05 (expected 2026-11-05)
 ```
 
-Then ran the corresponding `UPDATE` against Postgres:
-
-```sql
-UPDATE public.recurring_tasks
-SET interval_months = 3, next_due_date = '2026-11-05'
-WHERE id = '44444444-4444-4444-4444-444444444444';
-```
-
-**Result:** `interval_months` changed to 3, `day_of_month` stayed 5
-(untouched, pulled from the stored row since the payload didn't touch it),
-and `next_due_date` recomputed to `2026-11-05`.
+`day_of_month` is preserved from the stored row (falls back correctly since
+none of `day_of_month`/`week_of_month`/`days_of_week` were touched by this
+patch), and `next_due_date` is recomputed to November 5th: day 5 had already
+passed in August (the sandbox's "today"), and with the interval now every 3
+months starting from August, November is the next eligible month.
 
 ```
-  title   | recurrence_type | interval_months | day_of_month | next_due_date
-----------+-----------------+-----------------+--------------+---------------
- Pay rent | fixed_monthly   |               3 |            5 | 2026-11-05
-
-NOTICE:  PASS scenario 3: next_due_date recomputed to 2026-11-05 using
-preserved day_of_month=5, even though the payload only contained
-interval_months
+OVERALL: PASS
 ```
 
 ## `calculateNextOccurrenceOnOrAfter` date-math cases
@@ -231,9 +247,20 @@ OK   fixed_yearly today matches: got 2026-08-31, expected 2026-08-31
 OVERALL: PASS (all 15 cases)
 ```
 
+## Reproducing this
+
+The two production files used by the harness
+(`src/lib/utils/recurring-task-update.ts` and `src/lib/utils/recurrence.ts`)
+were copied into the harness project and diffed against the versions in
+this PR immediately before running, confirming byte-for-byte equality
+(`diff` produced no output) - the harness never edited them, only mapped the
+`@/*` import alias via `tsconfig.json` so they'd resolve outside this
+repo's own Next.js build.
+
 ## Teardown
 
 ```bash
 sudo -u postgres psql -c "DROP DATABASE recurring_verify;"
+sudo -u postgres psql -c "DROP ROLE verify_user;"
 sudo pg_ctlcluster 16 main stop
 ```
