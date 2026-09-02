@@ -47,7 +47,8 @@ network:
 # Opt-in permissions (FR-8.7). Empty is the restrictive resting state.
 # This repository is public, so its default branch has real branch protection
 # and it does not need `unprotected-default-branch` (ADR-0003).
-grants: []
+grants:
+  - migrations-as-files
 
 # May only ever LOWER the factory's own caps (FR-8.8, min(repo, ceiling)).
 budgets: {}
