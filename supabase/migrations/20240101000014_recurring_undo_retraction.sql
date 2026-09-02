@@ -56,8 +56,12 @@ BEGIN
     -- FOR UPDATE serializes concurrent completions of the same template.
     -- Without it, two overlapping transactions both read the same cursor
     -- and generate duplicate instances for the same date.
+    -- user_id = NEW.user_id enforces tenant ownership: without it, a task
+    -- row whose recurring_task_id was pointed at another tenant's template
+    -- would still be FOUND, letting a completion insert or advance that
+    -- other tenant's recurring state.
     SELECT * INTO template FROM public.recurring_tasks
-      WHERE id = NEW.recurring_task_id FOR UPDATE;
+      WHERE id = NEW.recurring_task_id AND user_id = NEW.user_id FOR UPDATE;
 
     -- Only generate if template exists, is active, and not paused
     IF FOUND AND template.is_active AND NOT template.is_paused THEN
@@ -114,15 +118,22 @@ BEGIN
   ELSIF NEW.is_completed = FALSE AND OLD.is_completed = TRUE AND NEW.recurring_task_id IS NOT NULL THEN
     -- Undo: retract the instance this task's own completion generated, so
     -- a later re-completion does not produce a second one.
+    -- user_id = NEW.user_id: see matching note on the completion branch
+    -- above. Without it, a task pointed at another tenant's template could
+    -- reach the delete below via a template row we don't own.
     SELECT * INTO template FROM public.recurring_tasks
-      WHERE id = NEW.recurring_task_id FOR UPDATE;
+      WHERE id = NEW.recurring_task_id AND user_id = NEW.user_id FOR UPDATE;
 
     -- Only retract when this is the most recently completed instance on the
     -- template. If a later instance was completed since (a chain of several
     -- completions before an earlier one gets undone), the current cursor
     -- was advanced by that later completion, not this one, and must not be
-    -- touched here.
-    IF FOUND AND NOT EXISTS (
+    -- touched here. OLD.completed_at is nullable at the schema level (the
+    -- app always sets it, but the DB does not enforce that): if it is NULL
+    -- here, "completed_at > OLD.completed_at" is unknown for every row, so
+    -- NOT EXISTS would wrongly read as "no later completion" even when one
+    -- exists. Require it non-null and skip retraction otherwise.
+    IF FOUND AND OLD.completed_at IS NOT NULL AND NOT EXISTS (
       SELECT 1 FROM public.tasks
       WHERE recurring_task_id = NEW.recurring_task_id
         AND id <> NEW.id
@@ -145,7 +156,8 @@ BEGIN
           AND is_detached = FALSE
           AND scheduled_date = template.next_due_date
         ORDER BY created_at DESC
-        LIMIT 1;
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED;
 
       IF generated_instance_id IS NOT NULL AND template.next_due_date > NEW.scheduled_date THEN
         DELETE FROM public.tasks WHERE id = generated_instance_id;
