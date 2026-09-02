@@ -138,7 +138,16 @@ BEGIN
       WHERE recurring_task_id = NEW.recurring_task_id
         AND id <> NEW.id
         AND is_completed = TRUE
-        AND completed_at > OLD.completed_at
+        -- completed_at IS NULL OR ...: a same-template row that is
+        -- completed but has an unknown completed_at cannot be proven
+        -- earlier than OLD.completed_at ("completed_at > OLD.completed_at"
+        -- is itself unknown, not true, for such a row) -- excluding it
+        -- here would make it invisible to this guard and let retraction
+        -- proceed past a completion that, for all we know, actually is
+        -- later. Treat an unknown timestamp as a possible later completion
+        -- and block on it, matching this migration's fail-closed stance
+        -- everywhere else (never touch a row we can't prove is safe to).
+        AND (completed_at IS NULL OR completed_at > OLD.completed_at)
     ) THEN
       -- The generated instance is identified structurally: it is the sole
       -- other uncompleted, non-detached task on this template, sitting
@@ -148,9 +157,18 @@ BEGIN
       -- edited it, deleted it, or another completion advanced the cursor
       -- further -- means we can no longer prove it is the untouched
       -- auto-generated row, so it is left alone.
+      --
+      -- user_id = template.user_id (== NEW.user_id, already enforced by
+      -- the template lookup above): recurring_task_id alone does not
+      -- prove ownership -- a row belonging to a different tenant could
+      -- otherwise be pointed at this same template id and, if it lands on
+      -- the same scheduled_date, be selected and deleted here instead of
+      -- the real generated instance, corrupting this tenant's cursor
+      -- while leaving another tenant's data deleted.
       SELECT id INTO generated_instance_id
         FROM public.tasks
         WHERE recurring_task_id = NEW.recurring_task_id
+          AND user_id = template.user_id
           AND id <> NEW.id
           AND is_completed = FALSE
           AND is_detached = FALSE
