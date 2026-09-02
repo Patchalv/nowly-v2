@@ -134,12 +134,17 @@ export default function RecurringPage() {
     priority: number;
     recurrence_type: RecurrenceType;
     interval_days?: number;
+    interval_weeks?: number;
+    interval_months?: number;
     days_of_week?: number[];
     day_of_month?: number;
+    week_of_month?: number;
     month_of_year?: number;
     start_date: string;
     end_date?: string;
-    next_due_date: string;
+    // Only present when creating - editing must never send this, the
+    // server recomputes next_due_date itself.
+    next_due_date?: string;
     is_active?: boolean;
   }) => {
     if (selectedItem) {
@@ -153,8 +158,12 @@ export default function RecurringPage() {
       }
     } else {
       // Create new - use selected workspace if available, otherwise default workspace
+      if (!data.next_due_date) {
+        throw new Error('next_due_date is required to create a recurring task');
+      }
       const result = await createRecurringTaskWithInstance({
         ...data,
+        next_due_date: data.next_due_date,
         workspace_id:
           selectedWorkspaceId || defaultWorkspace?.id || data.workspace_id,
       });

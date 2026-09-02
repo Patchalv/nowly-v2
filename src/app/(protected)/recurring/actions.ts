@@ -2,7 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import type { CreateRecurringTaskInput } from '@/schemas/recurring-task';
+import { buildRecurringTaskUpdate } from '@/lib/utils/recurring-task-update';
+import type {
+  CreateRecurringTaskInput,
+  UpdateRecurringTaskInput,
+} from '@/schemas/recurring-task';
 
 /**
  * Create a new recurring task and generate the first task instance
@@ -84,16 +88,14 @@ export async function createRecurringTaskWithInstance(
 
 /**
  * Update a recurring task and all uncompleted task instances
+ *
+ * `next_due_date` is deliberately not part of the accepted input: it is set
+ * once on create and otherwise only ever recomputed here, and only when the
+ * recurrence rule itself changed (never rewound to start_date).
  */
 export async function updateRecurringTaskAndInstances(
   id: string,
-  data: {
-    title?: string;
-    description?: string | null;
-    category_id?: string | null;
-    priority?: number;
-    is_active?: boolean;
-  }
+  data: Omit<UpdateRecurringTaskInput, 'id' | 'next_due_date'>
 ) {
   const supabase = await createClient();
 
@@ -106,10 +108,26 @@ export async function updateRecurringTaskAndInstances(
   }
 
   try {
+    const { data: existing, error: fetchError } = await supabase
+      .from('recurring_tasks')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (fetchError || !existing) {
+      return { error: fetchError?.message ?? 'Recurring task not found' };
+    }
+
+    // Whitelists exactly the fields this action is allowed to write and
+    // recomputes next_due_date itself (see recurring-task-update.ts) so the
+    // parameter type and the actual update payload can never drift apart.
+    const recurringUpdate = buildRecurringTaskUpdate(data, existing);
+
     // Update recurring task master
     const { error: recurringError } = await supabase
       .from('recurring_tasks')
-      .update(data)
+      .update(recurringUpdate)
       .eq('id', id)
       .eq('user_id', user.id);
 

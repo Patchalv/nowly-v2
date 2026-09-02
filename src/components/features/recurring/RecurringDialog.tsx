@@ -68,7 +68,10 @@ interface RecurringSaveData {
   month_of_year?: number;
   start_date: string;
   end_date?: string;
-  next_due_date: string;
+  // Only set when creating a new template. Editing must never send this -
+  // the server recomputes it itself, and only when the recurrence rule
+  // changed, so an edit can never rewind it back to start_date.
+  next_due_date?: string;
   is_active?: boolean;
 }
 
@@ -283,7 +286,12 @@ function RecurringDialogContent({
           never_end || !data.end_date
             ? undefined
             : format(data.end_date, 'yyyy-MM-dd'),
-        next_due_date: format(data.start_date, 'yyyy-MM-dd'),
+        // next_due_date is only meaningful when creating the first
+        // occurrence. On edit, the server recomputes it itself (and only
+        // when the recurrence rule changed) - never send it here.
+        ...(recurringTask
+          ? {}
+          : { next_due_date: format(data.start_date, 'yyyy-MM-dd') }),
       };
 
       // For monthly, only include relevant fields based on monthly_type
