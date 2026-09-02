@@ -364,9 +364,11 @@ CREATE TRIGGER on_task_completed
 ```
 
 > **Note:** The full implementation is in
-> `supabase/migrations/20240101000013_recurring_catchup.sql`. The per-type date
-> math lives in the helper `public.calculate_next_recurrence(template, from_date)`;
-> the trigger calls it in a loop.
+> `supabase/migrations/20240101000013_recurring_catchup.sql`, plus an
+> `ELSIF` branch added in `20240101000014_recurring_undo_retraction.sql` for
+> the `TRUE -> FALSE` transition (see below). The per-type date math lives in
+> the helper `public.calculate_next_recurrence(template, from_date)`; the
+> trigger calls it in a loop.
 
 ### Catch-up rule for overdue tasks
 
@@ -384,6 +386,23 @@ overdue task.
 
 `interval_from_completion` skips the loop entirely — it is already relative to
 `CURRENT_DATE`.
+
+### Retraction on undo
+
+Un-completing a recurring task's instance (`TRUE -> FALSE`) retracts the
+instance that its completion generated, so re-completing it afterward
+produces exactly one future instance instead of two, and
+`occurrences_generated` nets a single increment for the cycle rather than
+two.
+
+The generated instance is found structurally, not via a stored link: a
+template has exactly one active (uncompleted) instance at a time, and that
+instance's `scheduled_date` always equals `recurring_tasks.next_due_date`.
+If a row matching that — uncompleted, not `is_detached`, on the current
+cursor — can't be found, the undo does nothing: it never deletes or alters
+an instance it can't prove is the untouched auto-generated one (in
+particular, an `is_detached` instance is never touched). See
+`supabase/migrations/20240101000014_recurring_undo_retraction.sql`.
 
 ## Application-Level Constraints
 
