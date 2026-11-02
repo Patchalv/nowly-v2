@@ -50,12 +50,8 @@ SENTRY_AUTH_TOKEN=your_sentry_auth_token
 
 For more details on error handling utilities, see [`src/lib/errors/README.md`](src/lib/errors/README.md).
 
-## CI & Factory Onboarding
+## CI
 
-This repository is onboarded to a software factory that can plan and implement tickets autonomously:
-
-- `factory.yml` at the repo root marks the repository as factory-eligible. It names the CI jobs the factory's Verify stage gates on and carries the house style (conventions, permitted grants, network access) handed to the agent that plans and implements a ticket.
-- `.github/workflows/ci.yml` runs on every push to `main` and every pull request, with three jobs — `lint`, `typecheck`, and `build` — each named exactly as `factory.yml` expects. A pull request isn't marked ready until all three are green.
-- Work is handed to the factory via a GitHub issue using the [`factory-ticket`](.github/ISSUE_TEMPLATE/factory-ticket.md) template: a goal, observable acceptance criteria, and optionally an out-of-scope list and notes. Adding the `state:ready` label starts a run; nothing happens without it.
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request, with three jobs: `lint`, `typecheck` and `build`.
 
 Before committing, run `npm run format`, and make sure `npm run lint`, `npm run typecheck`, and `npm run build` all pass — they're the same checks CI runs.

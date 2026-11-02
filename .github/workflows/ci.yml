@@ -1,14 +1,3 @@
-# CI for the software factory's Verify stage.
-#
-# The factory reads these jobs' conclusions through the GitHub Actions API and
-# will not mark a pull request ready unless every job named in `factory.yml`'s
-# `checks:` is present and green. The job keys below are those names — rename a
-# job here and you must rename it there in the same commit, or Verify waits for
-# a check that no longer exists and fails at its deadline.
-#
-# The factory cannot edit this file. Its machine account's token deliberately
-# lacks the `workflow` scope, so an agent cannot make its own gate pass.
-
 name: CI
 
 on:
@@ -32,8 +21,8 @@ jobs:
         with:
           # Otherwise checkout leaves GITHUB_TOKEN in .git/config as an auth
           # header, readable by anything that runs afterwards — including code
-          # the factory writes. No dependency here is git-sourced, so nothing
-          # needs it.
+          # a pull request brings in. No dependency here is git-sourced, so
+          # nothing needs it.
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -50,8 +39,8 @@ jobs:
         with:
           # Otherwise checkout leaves GITHUB_TOKEN in .git/config as an auth
           # header, readable by anything that runs afterwards — including code
-          # the factory writes. No dependency here is git-sourced, so nothing
-          # needs it.
+          # a pull request brings in. No dependency here is git-sourced, so
+          # nothing needs it.
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -68,8 +57,8 @@ jobs:
         with:
           # Otherwise checkout leaves GITHUB_TOKEN in .git/config as an auth
           # header, readable by anything that runs afterwards — including code
-          # the factory writes. No dependency here is git-sourced, so nothing
-          # needs it.
+          # a pull request brings in. No dependency here is git-sourced, so
+          # nothing needs it.
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -83,7 +72,7 @@ jobs:
       # upload source maps, and carries on.
       #
       # Keeping it that way is a security decision, not laziness. Secrets are
-      # readable by anything CI runs, and CI runs code the factory writes;
+      # readable by anything CI runs, and CI runs code from pull requests;
       # SUPABASE_SERVICE_ROLE_KEY in particular bypasses row-level security.
       # Add a secret here only when a job genuinely cannot run without it.
       - run: npm run build
