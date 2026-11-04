@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { useCreateTask } from '@/hooks/useCreateTask';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
-import { createClient } from '@/lib/supabase/client';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { toast } from 'sonner';
 
 interface QuickAddTaskProps {
@@ -31,27 +31,15 @@ export function QuickAddTask({
 }: QuickAddTaskProps) {
   const [title, setTitle] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
   const [selectedWorkspace, setSelectedWorkspace] = useState<string>(
     workspaceId || ''
   );
   const createTask = useCreateTask();
-  const supabase = createClient();
+  const { data: currentUser } = useCurrentUser();
+  const userId = currentUser?.id ?? null;
   const { data: workspaces } = useWorkspaces();
 
   const needsWorkspaceSelector = !workspaceId;
-
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-      }
-    };
-    getUser();
-  }, [supabase]);
 
   // Set default workspace when workspaces load
   useEffect(() => {

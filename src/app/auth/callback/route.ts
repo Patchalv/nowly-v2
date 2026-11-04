@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth/get-current-user';
 import { NextResponse, type NextRequest } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 
@@ -23,9 +24,7 @@ export async function GET(request: NextRequest) {
     const hasSentryDsn = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
 
     if (isProduction && hasSentryDsn) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { user } = await getCurrentUser(supabase);
 
       if (user) {
         // Only send user ID to Sentry (GDPR compliance - no PII)

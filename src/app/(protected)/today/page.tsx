@@ -1,15 +1,13 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { format, startOfToday } from 'date-fns';
 import { QuickAddTask } from '@/components/features/tasks/QuickAddTask';
 import { TaskList } from '@/components/features/tasks/TaskList';
 import { TaskDialog } from '@/components/features/tasks/TaskDialog';
 import { useTodayTasks } from '@/hooks/useTasks';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
-import { useCreateWorkspace } from '@/hooks/useCreateWorkspace';
 import { useToggleTaskComplete } from '@/hooks/useToggleTaskComplete';
-import { createClient } from '@/lib/supabase/client';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import type { Task, Category } from '@/types/supabase';
 
@@ -22,9 +20,6 @@ export default function TodayPage() {
     null
   );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const hasCreatedWorkspace = useRef(false);
-  const supabase = createClient();
   const { selectedWorkspaceId } = useWorkspaceStore();
 
   // Get today's date in ISO format (YYYY-MM-DD)
@@ -32,51 +27,7 @@ export default function TodayPage() {
     return format(startOfToday(), 'yyyy-MM-dd');
   }, []);
 
-  // Get current user
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-      }
-    };
-    getUser();
-  }, [supabase]);
-
-  // Fetch user's workspaces to get the default workspace
-  const { data: workspaces, isLoading: workspacesLoading } = useWorkspaces();
-  const createWorkspace = useCreateWorkspace();
-  const defaultWorkspace = workspaces?.[0];
-
-  // Auto-create default workspace if none exists
-  useEffect(() => {
-    const createDefaultWorkspace = async () => {
-      if (
-        !workspacesLoading &&
-        !defaultWorkspace &&
-        userId &&
-        !hasCreatedWorkspace.current &&
-        !createWorkspace.isPending
-      ) {
-        hasCreatedWorkspace.current = true;
-        try {
-          await createWorkspace.mutateAsync([
-            {
-              name: 'Personal',
-              user_id: userId,
-              icon: '🏠',
-            },
-          ]);
-        } catch (error) {
-          console.error('Failed to create default workspace:', error);
-          hasCreatedWorkspace.current = false;
-        }
-      }
-    };
-    createDefaultWorkspace();
-  }, [workspacesLoading, defaultWorkspace, userId, createWorkspace]);
+  const { isLoading: workspacesLoading } = useWorkspaces();
 
   // Fetch tasks for today and overdue tasks (filtered by workspace)
   const {

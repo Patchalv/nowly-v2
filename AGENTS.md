@@ -118,7 +118,7 @@ Public, auth-only and protected route prefixes are listed in `src/proxy.ts`.
 
 ### 8. Error Handling — Sentry Integration
 
-**When to use error handlers:** `handleSupabaseError` for database operations, `handleAuthError` (with `getAuthErrorMessage` for the user-facing message) for authentication — both in `src/lib/errors/`. Never `console.error` and never swallow the error; it won't be tracked in production.
+**When to use error handlers:** `handleSupabaseError` (in `src/lib/errors/`) for database operations. Never `console.error` and never swallow the error; it won't be tracked in production.
 
 **Key principles:**
 

@@ -10,10 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useAllTasks, type SortOption } from '@/hooks/useAllTasks';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
-import { useCreateWorkspace } from '@/hooks/useCreateWorkspace';
 import { useCategories } from '@/hooks/useCategories';
 import { useToggleTaskComplete } from '@/hooks/useToggleTaskComplete';
-import { createClient } from '@/lib/supabase/client';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import { cn } from '@/lib/utils';
 import type { Task, Category } from '@/types/supabase';
@@ -34,63 +32,15 @@ export default function AllTasksPage() {
   );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
 
   // Stores
   const { selectedWorkspaceId } = useWorkspaceStore();
 
   // Refs
-  const hasCreatedWorkspace = useRef(false);
   const observerTarget = useRef<HTMLDivElement>(null);
   const previousWorkspaceId = useRef(selectedWorkspaceId);
 
-  // Get current user
-  useEffect(() => {
-    const supabase = createClient();
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-      }
-    };
-    getUser();
-  }, []);
-
-  // Fetch user's workspaces
-  const { data: workspaces, isLoading: workspacesLoading } = useWorkspaces();
-  const createWorkspace = useCreateWorkspace();
-  const defaultWorkspace = workspaces?.[0];
-
-  // Auto-create default workspace if none exists
-  useEffect(() => {
-    const createDefaultWorkspace = async () => {
-      if (
-        !workspacesLoading &&
-        !defaultWorkspace &&
-        userId &&
-        !hasCreatedWorkspace.current &&
-        !createWorkspace.isPending
-      ) {
-        hasCreatedWorkspace.current = true;
-        try {
-          await createWorkspace.mutateAsync([
-            {
-              name: 'Personal',
-              user_id: userId,
-              icon: '🏠',
-            },
-          ]);
-        } catch (error) {
-          console.error('Failed to create default workspace:', error);
-          hasCreatedWorkspace.current = false;
-        }
-      }
-    };
-    createDefaultWorkspace();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspacesLoading, defaultWorkspace, userId]);
+  const { isLoading: workspacesLoading } = useWorkspaces();
 
   // Fetch categories (supports null for Master view)
   const { data: categories } = useCategories(selectedWorkspaceId);
@@ -128,9 +78,11 @@ export default function AllTasksPage() {
     // Skip initial mount - filters already have default values
     if (previousWorkspaceId.current !== selectedWorkspaceId) {
       previousWorkspaceId.current = selectedWorkspaceId;
+      /* eslint-disable react-hooks/set-state-in-effect */
       setSearchQuery('');
       setSelectedCategories([]);
       setSortBy('due_date');
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [selectedWorkspaceId]);
 

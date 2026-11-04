@@ -13,7 +13,6 @@ Error handling utilities for Nowly v2 that integrate with Sentry for production 
 ## Files
 
 - `supabase-error-handler.ts` - Handles Supabase database (Postgrest) errors
-- `auth-error-handler.ts` - Handles Supabase authentication errors
 
 ## Usage
 
@@ -63,65 +62,6 @@ try {
     handleSupabaseError(err, {
       table: 'tasks',
       operation: 'insert',
-    });
-  }
-}
-```
-
-### Authentication Errors
-
-```typescript
-import {
-  handleAuthError,
-  getAuthErrorMessage,
-} from '@/lib/errors/auth-error-handler';
-import { toast } from 'sonner';
-
-async function handleSignIn(email: string, password: string) {
-  const supabase = createClient();
-
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (error) {
-    // Log to Sentry (production only)
-    handleAuthError(error, {
-      operation: 'signIn',
-      provider: 'email',
-      source: 'LoginForm',
-    });
-
-    // Show user-friendly message
-    const message = getAuthErrorMessage(error);
-    toast.error(message);
-
-    return;
-  }
-
-  // Success
-  toast.success('Welcome back!');
-}
-```
-
-### OAuth Provider Errors
-
-```typescript
-import { handleAuthError } from '@/lib/errors/auth-error-handler';
-
-async function handleGoogleSignIn() {
-  const supabase = createClient();
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-  });
-
-  if (error) {
-    handleAuthError(error, {
-      operation: 'signIn',
-      provider: 'google',
-      source: 'GoogleSignInButton',
     });
   }
 }
@@ -188,21 +128,13 @@ When errors are captured in production, they include:
 - **User**: User ID (if provided)
 - **Extra**: Custom metadata
 
-### Auth Errors
-
-- **Tags**: `error_type`, `error_code`, `auth_operation`, `auth_provider`, `status`
-- **Contexts**: Scrubbed auth error details, operation context
-- **Level**: Automatically determined (warning for user errors, error for server errors)
-- **Fingerprint**: Grouped by error code and operation for better issue tracking
-
 ## Best Practices
 
 1. **Always provide context**: Include `table`, `operation`, `source` for better debugging
 2. **Include user ID**: Helps track user-specific issues (PII is automatically scrubbed)
 3. **Add metadata**: Custom data that helps understand the error
 4. **Use type guards**: Check error types before handling
-5. **Show user-friendly messages**: Use `getAuthErrorMessage()` for auth errors
-6. **Handle errors close to source**: Call error handlers where errors occur
+5. **Handle errors close to source**: Call error handlers where errors occur
 
 ## Privacy & Security
 

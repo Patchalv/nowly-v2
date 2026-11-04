@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth/get-current-user';
 import { revalidatePath } from 'next/cache';
 import { buildRecurringTaskUpdate } from '@/lib/utils/recurring-task-update';
 import type {
@@ -17,9 +18,7 @@ export async function createRecurringTaskWithInstance(
   const supabase = await createClient();
 
   // Validate auth
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await getCurrentUser(supabase);
   if (!user) {
     return { error: 'Unauthorized' };
   }
@@ -100,9 +99,7 @@ export async function updateRecurringTaskAndInstances(
   const supabase = await createClient();
 
   // Validate auth
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await getCurrentUser(supabase);
   if (!user) {
     return { error: 'Unauthorized' };
   }
@@ -183,9 +180,7 @@ export async function deleteRecurringTaskAndInstances(id: string) {
   const supabase = await createClient();
 
   // Validate auth
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await getCurrentUser(supabase);
   if (!user) {
     return { error: 'Unauthorized' };
   }
