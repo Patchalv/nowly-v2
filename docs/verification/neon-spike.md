@@ -63,4 +63,11 @@ Run on 2026-11-04 to answer the open questions in `docs/NEON_MIGRATION_SPEC.md` 
 
 ## Reproducing this
 
-The scripts live in the session scratchpad (`neon-spike/test.mjs`, `neon-spike/keycmp.mjs`, the probe app under `neon-spike/app`, and `schema/*.sql`). To reproduce, recreate a Neon project with the Data API (Managed Better Auth provider, default grants off), apply the ported schema and the Neon additions, then run `node test.mjs`.
+The spike's files are in `neon-spike-files/` next to this document; its README lists them. To reproduce:
+
+1. Create a Neon project and enable the Data API with Managed Better Auth as the provider and default grants off.
+2. Apply the output of `port-migrations.sh`, then `neon-additions.sql`, in one transaction.
+3. Run `fingerprint.sql` and compare with the production values in its header.
+4. Run `node check-data-api.mjs` with `NEON_AUTH_URL` and `NEON_DATA_API_URL` set.
+
+One line was corrected after the run. The cache-helpers check compared `path` instead of `alias`, and the original run reported a false failure on it. The direct comparison (`cache-key-compare.mjs`) confirmed the parse is identical.

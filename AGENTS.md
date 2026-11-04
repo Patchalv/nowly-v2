@@ -145,11 +145,12 @@ See [`src/lib/errors/README.md`](src/lib/errors/README.md) for detailed examples
 
 Read these files when working on specific areas:
 
-| Area                   | File                   | When to read                                        |
-| ---------------------- | ---------------------- | --------------------------------------------------- |
-| Database schema        | `docs/DATABASE.md`     | Creating/modifying tables, RLS policies, migrations |
-| Component patterns     | `docs/PATTERNS.md`     | Building UI components, state management            |
-| Architecture decisions | `docs/ARCHITECTURE.md` | Understanding why decisions were made               |
+| Area                         | File                                                                                                    | When to read                                                                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Database schema              | `docs/DATABASE.md`                                                                                      | Creating/modifying tables, RLS policies, migrations                                                                          |
+| Component patterns           | `docs/PATTERNS.md`                                                                                      | Building UI components, state management                                                                                     |
+| Architecture decisions       | `docs/ARCHITECTURE.md`                                                                                  | Understanding why decisions were made                                                                                        |
+| Neon migration (in progress) | `docs/NEON_MIGRATION_SPEC.md`, `docs/verification/neon-spike.md`, `docs/verification/neon-spike-files/` | Any ticket under the "Move Nowly from Supabase to Neon" issue; any change to auth, data clients or migrations until it lands |
 
 ## Good Examples to Copy
 
