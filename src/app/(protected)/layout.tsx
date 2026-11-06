@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth/get-current-user';
 import { AppSidebar } from '@/components/app-sidebar';
 import {
   SidebarInset,
@@ -22,11 +22,7 @@ export default async function ProtectedLayout({
   children,
 }: ProtectedLayoutProps) {
   // PRIMARY AUTH CHECK - validates JWT with Supabase server
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  const { user, error } = await getCurrentUser();
 
   if (error || !user) {
     redirect('/login');

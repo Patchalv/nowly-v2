@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { getCurrentUser } from '@/lib/auth/get-current-user';
 
 // Public routes - no authentication required
 const publicRoutes = [
@@ -84,10 +85,7 @@ export async function proxy(request: NextRequest) {
   // (network issue, Supabase down), user will be undefined and protected routes
   // will redirect to /login. This is the safe default. The protected layout
   // provides the primary auth check and will report errors to Sentry.
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  const { user, error } = await getCurrentUser(supabase);
 
   // Log auth errors in development for debugging (don't spam Sentry from proxy)
   if (error && process.env.NODE_ENV === 'development') {

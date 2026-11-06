@@ -8,6 +8,7 @@ import {
 // Note: useQueryClient removed - using refetch from useQuery instead
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/client';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { handleSupabaseError } from '@/lib/errors/supabase-error-handler';
 import type { OnboardingState } from '@/types/onboarding';
 import { TooltipType } from '@/types/onboarding';
@@ -42,6 +43,7 @@ import { TooltipType } from '@/types/onboarding';
  */
 export function useOnboarding() {
   const supabase = createClient();
+  const { data: currentUser } = useCurrentUser();
 
   // Fetch onboarding state (RLS ensures we only get our own record)
   // Use maybeSingle() instead of single() to return null for new users
@@ -113,14 +115,8 @@ export function useOnboarding() {
       }
 
       // No existing record - create one via upsert
-      // Get current user ID for the new record
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        Sentry.captureException(userError || new Error('No user found'), {
+      if (!currentUser) {
+        Sentry.captureException(new Error('No user found'), {
           tags: {
             feature: 'onboarding',
             operation: 'completeTour',
@@ -132,7 +128,7 @@ export function useOnboarding() {
       // Upsert the onboarding record (insert or update on conflict)
       const { error } = await supabase.from('user_onboarding').upsert(
         {
-          user_id: user.id,
+          user_id: currentUser.id,
           initial_tour_completed: true,
           initial_tour_completed_at: new Date().toISOString(),
           dismissed_tooltips: [],
@@ -162,7 +158,7 @@ export function useOnboarding() {
       },
       mutateAsync: doCompleteTour,
     };
-  }, [data?.id, updateMutation, supabase, refetch]);
+  }, [data?.id, updateMutation, supabase, refetch, currentUser]);
 
   /**
    * Check if a tooltip has been dismissed by the user.

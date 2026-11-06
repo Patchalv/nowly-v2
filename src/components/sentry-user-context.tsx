@@ -2,7 +2,17 @@
 
 import { useEffect } from 'react';
 import * as Sentry from '@sentry/nextjs';
+import { useQueryClient } from '@tanstack/react-query';
+import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
+import { useCurrentUser, CURRENT_USER_QUERY_KEY } from '@/hooks/useCurrentUser';
+
+function isSentryEnabled() {
+  return (
+    process.env.NODE_ENV === 'production' &&
+    !!process.env.NEXT_PUBLIC_SENTRY_DSN
+  );
+}
 
 /**
  * Sets Sentry user context when authenticated.
@@ -10,68 +20,51 @@ import { createClient } from '@/lib/supabase/client';
  * track the authenticated user in Sentry for better error tracking.
  *
  * Only sets user context in production to avoid polluting development logs.
- * Sets minimal user data (id and email) to respect privacy.
+ * Sends only the user ID (GDPR: no email or other PII).
  */
 export function SentryUserContext() {
+  const queryClient = useQueryClient();
+  const { data: user, isSuccess } = useCurrentUser();
+  const userId = user?.id ?? null;
+
   useEffect(() => {
-    const setSentryUser = async () => {
-      // Only set user context in production and if Sentry DSN is configured
-      const isProduction = process.env.NODE_ENV === 'production';
-      const hasSentryDsn = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
+    if (!isSentryEnabled() || !isSuccess) {
+      return;
+    }
+    Sentry.setUser(userId ? { id: userId } : null);
+  }, [userId, isSuccess]);
 
-      if (!isProduction || !hasSentryDsn) {
-        return;
-      }
-
-      const supabase = createClient();
-
-      // Get current user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        // Set Sentry user context with minimal PII
-        Sentry.setUser({
-          id: user.id,
-          email: user.email,
-          // DO NOT include other fields like name, phone, etc.
-        });
-      } else {
-        // Clear user context if not authenticated
-        Sentry.setUser(null);
-      }
-    };
-
-    setSentryUser();
-
-    // Set up auth state listener to update Sentry context on auth changes
+  // Keep the cached current user and Sentry context in sync with auth changes
+  useEffect(() => {
     const supabase = createClient();
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      const isProduction = process.env.NODE_ENV === 'production';
-      const hasSentryDsn = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      const sessionUserId = session?.user.id ?? null;
 
-      if (!isProduction || !hasSentryDsn) {
-        return;
+      if (event === 'SIGNED_OUT') {
+        queryClient.setQueryData(CURRENT_USER_QUERY_KEY, null);
+      } else if (
+        queryClient.getQueryState(CURRENT_USER_QUERY_KEY)?.status ===
+          'success' &&
+        queryClient.getQueryData<User | null>(CURRENT_USER_QUERY_KEY)?.id !==
+          (sessionUserId ?? undefined)
+      ) {
+        // Re-verify with the auth server rather than trusting the local session
+        void queryClient.invalidateQueries({
+          queryKey: CURRENT_USER_QUERY_KEY,
+        });
       }
 
-      if (session?.user) {
-        Sentry.setUser({
-          id: session.user.id,
-          email: session.user.email,
-        });
-      } else {
-        Sentry.setUser(null);
+      if (isSentryEnabled()) {
+        Sentry.setUser(sessionUserId ? { id: sessionUserId } : null);
       }
     });
 
-    // Cleanup subscription
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [queryClient]);
 
   // This component doesn't render anything
   return null;

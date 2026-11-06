@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Pencil, Trash2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +26,7 @@ import { useDeleteWorkspace } from '@/hooks/useDeleteWorkspace';
 import { useDeleteCategory } from '@/hooks/useDeleteCategory';
 import { WorkspaceDialog } from '@/components/features/workspaces/WorkspaceDialog';
 import { CategoryDialog } from '@/components/features/categories/CategoryDialog';
-import { createClient } from '@/lib/supabase/client';
+import { useCurrentUser, CURRENT_USER_QUERY_KEY } from '@/hooks/useCurrentUser';
 import { signOut } from '@/app/(auth)/actions';
 import { toast } from 'sonner';
 import type { Workspace, Category } from '@/types/supabase';
@@ -41,7 +42,6 @@ function isLocalhost(): boolean {
 }
 
 export default function AccountPage() {
-  const [userId, setUserId] = useState<string | null>(null);
   const [fullName, setFullName] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [showDevTools, setShowDevTools] = useState(false);
@@ -72,25 +72,14 @@ export default function AccountPage() {
     name: string;
   } | null>(null);
 
-  const supabase = createClient();
+  const queryClient = useQueryClient();
+  const { data: currentUser } = useCurrentUser();
+  const userId = currentUser?.id ?? null;
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: workspaces, isLoading: workspacesLoading } = useWorkspaces();
   const updateProfile = useUpdateProfile();
   const deleteWorkspace = useDeleteWorkspace();
   const deleteCategory = useDeleteCategory();
-
-  // Get current user
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-      }
-    };
-    getUser();
-  }, [supabase]);
 
   // Set full name from profile
   useEffect(() => {
@@ -124,6 +113,8 @@ export default function AccountPage() {
 
   const handleLogout = async () => {
     try {
+      // Drop the cached user so a different account signing in on this tab never sees it
+      queryClient.removeQueries({ queryKey: CURRENT_USER_QUERY_KEY });
       await signOut();
     } catch (error) {
       toast.error('Failed to log out', {

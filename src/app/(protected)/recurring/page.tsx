@@ -7,9 +7,7 @@ import { RecurringDialog } from '@/components/features/recurring/RecurringDialog
 import { SearchInput } from '@/components/features/search/SearchInput';
 import { useRecurringTasks } from '@/hooks/useRecurringTasks';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
-import { useCreateWorkspace } from '@/hooks/useCreateWorkspace';
 import { useCategories } from '@/hooks/useCategories';
-import { createClient } from '@/lib/supabase/client';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import {
   createRecurringTaskWithInstance,
@@ -30,10 +28,7 @@ export default function RecurringPage() {
   const [dialogDefaultValues, setDialogDefaultValues] = useState<
     Partial<RecurringTask> | undefined
   >(undefined);
-  const [userId, setUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const hasCreatedWorkspace = useRef(false);
-  const supabase = createClient();
   const { selectedWorkspaceId } = useWorkspaceStore();
   const previousWorkspaceId = useRef(selectedWorkspaceId);
 
@@ -54,51 +49,9 @@ export default function RecurringPage() {
     setSearchQuery(query);
   }, []);
 
-  // Get current user
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-      }
-    };
-    getUser();
-  }, [supabase]);
-
   // Fetch user's workspaces to get the default workspace
   const { data: workspaces, isLoading: workspacesLoading } = useWorkspaces();
-  const createWorkspace = useCreateWorkspace();
   const defaultWorkspace = workspaces?.[0];
-
-  // Auto-create default workspace if none exists
-  useEffect(() => {
-    const createDefaultWorkspace = async () => {
-      if (
-        !workspacesLoading &&
-        !defaultWorkspace &&
-        userId &&
-        !hasCreatedWorkspace.current &&
-        !createWorkspace.isPending
-      ) {
-        hasCreatedWorkspace.current = true;
-        try {
-          await createWorkspace.mutateAsync([
-            {
-              name: 'Personal',
-              user_id: userId,
-              icon: '🏠',
-            },
-          ]);
-        } catch (error) {
-          console.error('Failed to create default workspace:', error);
-          hasCreatedWorkspace.current = false;
-        }
-      }
-    };
-    createDefaultWorkspace();
-  }, [workspacesLoading, defaultWorkspace, userId, createWorkspace]);
 
   // Fetch recurring tasks (filtered by workspace and search)
   const {
