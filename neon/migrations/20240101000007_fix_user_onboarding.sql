@@ -1,0 +1,7 @@
+-- =====================================================
+-- FIX USER ONBOARDING (Neon port: intentionally empty)
+-- The Supabase version redefines handle_new_user(), a trigger on
+-- auth.users. Neon has no auth.users and no handle_new_user(); new
+-- accounts are set up by public.ensure_account() (20240101000015).
+-- This file is kept so the numbering matches supabase/migrations/.
+-- =====================================================
