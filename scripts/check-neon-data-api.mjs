@@ -158,7 +158,9 @@ async function main() {
   });
   check(
     'profile name/email from neon_auth.user',
-    prof.data?.full_name === 'Check A' && prof.data?.id === idA,
+    prof.data?.full_name === 'Check A' &&
+      prof.data?.email === `check-a-${stamp}@example.com` &&
+      prof.data?.id === idA,
     prof.data ?? prof.error
   );
 
@@ -187,13 +189,18 @@ async function main() {
   });
   check('B cannot insert as A', !!bIns.error, bIns.error?.code ?? bIns.data);
 
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Real argument names, so the function resolves and only the missing
+  // EXECUTE grant (42501) can stop the call. PGRST202 (no matching function)
+  // would mean the check proved nothing.
   const calc = await rest(tA, 'POST', 'rpc/calculate_next_recurrence', {
-    body: {},
+    body: { template: {}, from_date: today },
   });
   check(
     'calculate_next_recurrence not callable',
-    !!calc.error,
-    calc.error?.code ?? calc.data
+    calc.error?.code === '42501',
+    calc.error ?? calc.data
   );
   const anonRpc = await rest(null, 'POST', 'rpc/ensure_account', { body: {} });
   check(
@@ -202,7 +209,6 @@ async function main() {
     anonRpc.status
   );
 
-  const today = new Date().toISOString().slice(0, 10);
   const rt = await rest(tA, 'POST', 'recurring_tasks', {
     single: true,
     body: {
