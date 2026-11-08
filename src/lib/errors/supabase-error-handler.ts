@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
-import type { PostgrestError } from '@supabase/supabase-js';
+import type { PostgrestError } from '@supabase/postgrest-js';
 
 /**
  * Context metadata for Supabase errors

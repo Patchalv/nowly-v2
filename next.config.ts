@@ -2,7 +2,13 @@ import { withSentryConfig } from '@sentry/nextjs';
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  turbopack: {
+    resolveAlias: {
+      // cache-helpers imports two realtime constants from supabase-js, which
+      // Nowly no longer installs. See the stub for details.
+      '@supabase/supabase-js': './src/lib/supabase/supabase-js-stub.ts',
+    },
+  },
 };
 
 export default withSentryConfig(nextConfig, {

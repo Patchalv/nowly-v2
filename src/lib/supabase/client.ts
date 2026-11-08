@@ -1,8 +1,22 @@
-import { createBrowserClient } from '@supabase/ssr';
+import { NeonPostgrestClient, fetchWithToken } from '@neon/postgrest-js';
+import { getAuthClient } from '@/lib/auth/client';
 
+let client: NeonPostgrestClient | undefined;
+
+/**
+ * The browser data client: a Neon Data API client that sends the signed-in
+ * user's JWT with every request. Created once, on first use.
+ */
 export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  client ??= new NeonPostgrestClient({
+    dataApiUrl: process.env.NEXT_PUBLIC_NEON_DATA_API_URL!,
+    options: {
+      global: {
+        fetch: fetchWithToken(
+          async () => (await getAuthClient().token()).data?.token ?? null
+        ),
+      },
+    },
+  });
+  return client;
 }

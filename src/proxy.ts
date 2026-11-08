@@ -1,112 +1,27 @@
-import { type NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { getCurrentUser } from '@/lib/auth/get-current-user';
+import type { NextRequest } from 'next/server';
+import { getAuth } from '@/lib/auth/server';
 
-// Public routes - no authentication required
+// Routes reachable without a session. Every other route redirects to /login
+// when signed out. /api/auth is public by default. /monitoring is Sentry's
+// tunnel route.
 const publicRoutes = [
   '/',
   '/login',
   '/signup',
   '/privacy',
   '/terms',
-  '/auth/callback',
+  '/monitoring',
 ];
 
-// Auth routes - redirect to /today if already authenticated
-const authRoutes = ['/login', '/signup'];
+let middleware:
+  | ReturnType<ReturnType<typeof getAuth>['middleware']>
+  | undefined;
 
-// Protected route prefixes - require authentication
-const protectedPrefixes = [
-  '/today',
-  '/daily',
-  '/weekly',
-  '/all-tasks',
-  '/backlog',
-  '/recurring',
-  '/account',
-];
-
+// Optimistic redirects only. The protected layout is the primary auth check.
+// Signed-in users on /login or /signup are redirected by those pages.
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // Skip proxy for static assets and Next.js internals
-  // Note: matcher config already filters common asset extensions,
-  // so we only need to check for _next and api prefixes here
-  if (pathname.startsWith('/_next') || pathname.startsWith('/api')) {
-    return NextResponse.next();
-  }
-
-  // Check if this is a public route
-  const isPublicRoute = publicRoutes.some(
-    (route) => pathname === route || pathname.startsWith(route + '/')
-  );
-
-  // Check if this is an auth route (login/signup)
-  const isAuthRoute = authRoutes.some(
-    (route) => pathname === route || pathname.startsWith(route + '/')
-  );
-
-  // Check if this is a protected route
-  const isProtectedRoute = protectedPrefixes.some((prefix) =>
-    pathname.startsWith(prefix)
-  );
-
-  // Create response to modify cookies if needed
-  let response = NextResponse.next({
-    request,
-  });
-
-  // Create Supabase client for session refresh
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          response = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  // Refresh session - this validates the JWT with Supabase
-  // Note: We intentionally use fail-closed behavior here. If getUser() errors
-  // (network issue, Supabase down), user will be undefined and protected routes
-  // will redirect to /login. This is the safe default. The protected layout
-  // provides the primary auth check and will report errors to Sentry.
-  const { user, error } = await getCurrentUser(supabase);
-
-  // Log auth errors in development for debugging (don't spam Sentry from proxy)
-  if (error && process.env.NODE_ENV === 'development') {
-    console.warn('[proxy] Auth error:', error.message);
-  }
-
-  // If user is authenticated and on auth routes, redirect to /today
-  if (user && isAuthRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/today';
-    return NextResponse.redirect(url);
-  }
-
-  // If user is not authenticated and on protected routes, redirect to /login
-  if (!user && isProtectedRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
-  }
-
-  return response;
+  middleware ??= getAuth().middleware({ loginUrl: '/login', publicRoutes });
+  return middleware(request);
 }
 
 export const config = {
@@ -116,8 +31,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - manifest.json (web app manifest)
      * - public files (images, etc.)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

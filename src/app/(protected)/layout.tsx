@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth/get-current-user';
+import { createClient } from '@/lib/supabase/server';
+import { handleSupabaseError } from '@/lib/errors/supabase-error-handler';
 import { AppSidebar } from '@/components/app-sidebar';
 import {
   SidebarInset,
@@ -12,6 +14,9 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { SentryUserContext } from '@/components/sentry-user-context';
 import { OnboardingTour } from '@/components/features/onboarding/OnboardingTour';
 
+// Reads the session cookie, so it can't be prerendered at build time.
+export const dynamic = 'force-dynamic';
+
 const SIDEBAR_COOKIE_NAME = 'sidebar_state';
 
 interface ProtectedLayoutProps {
@@ -21,11 +26,23 @@ interface ProtectedLayoutProps {
 export default async function ProtectedLayout({
   children,
 }: ProtectedLayoutProps) {
-  // PRIMARY AUTH CHECK - validates JWT with Supabase server
+  // PRIMARY AUTH CHECK - reads the Neon Auth session
   const { user, error } = await getCurrentUser();
 
   if (error || !user) {
     redirect('/login');
+  }
+
+  // Create the profile, default workspace, categories, onboarding row and
+  // sample tasks on the first visit. Does nothing for an existing account.
+  const db = await createClient();
+  const { error: ensureError } = await db.rpc('ensure_account');
+  if (ensureError) {
+    handleSupabaseError(ensureError, {
+      operation: 'rpc',
+      userId: user.id,
+      source: 'ProtectedLayout.ensure_account',
+    });
   }
 
   const cookieStore = await cookies();
