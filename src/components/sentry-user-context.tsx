@@ -30,6 +30,16 @@ export function SentryUserContext() {
     Sentry.setUser(userId ? { id: userId } : null);
   }, [userId, isSuccess]);
 
+  // This component lives in the protected layout, so it unmounts on sign-out.
+  // Clear the browser-side Sentry user then.
+  useEffect(() => {
+    return () => {
+      if (isSentryEnabled()) {
+        Sentry.setUser(null);
+      }
+    };
+  }, []);
+
   // This component doesn't render anything
   return null;
 }
