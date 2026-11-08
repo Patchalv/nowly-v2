@@ -1,5 +1,5 @@
 import { NeonPostgrestClient, fetchWithToken } from '@neon/postgrest-js';
-import { getAuthClient } from '@/lib/auth/client';
+import { getBrowserAccessToken } from '@/lib/auth/client';
 
 let client: NeonPostgrestClient | undefined;
 
@@ -12,9 +12,7 @@ export function createClient() {
     dataApiUrl: process.env.NEXT_PUBLIC_NEON_DATA_API_URL!,
     options: {
       global: {
-        fetch: fetchWithToken(
-          async () => (await getAuthClient().token()).data?.token ?? null
-        ),
+        fetch: fetchWithToken(getBrowserAccessToken),
       },
     },
   });
