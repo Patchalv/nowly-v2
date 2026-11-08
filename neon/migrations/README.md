@@ -4,7 +4,7 @@ These files recreate Nowly's production `public` schema on Neon. They are a port
 
 ## Applying
 
-Run against an **empty** Neon branch that has the Data API enabled (the Data API creates the `authenticated` and `anonymous` roles and the `auth.uid()` function the migrations rely on). Use the direct (non-pooled) connection string. All files apply in order, in one transaction:
+Run against an **empty** Neon branch that has both **Neon Auth** and the **Data API** enabled. Neon Auth creates the `neon_auth."user"` table that every user foreign key and `ensure_account()` reference; without it, `0001` fails with `schema "neon_auth" does not exist`. The Data API creates the `authenticated` and `anonymous` roles and the `auth.uid()` function the migrations rely on. Use the direct (non-pooled) connection string. All files apply in order, in one transaction:
 
 ```bash
 cat neon/migrations/*.sql | psql "$NEON_DATABASE_URL" -1 -v ON_ERROR_STOP=1 -f -
