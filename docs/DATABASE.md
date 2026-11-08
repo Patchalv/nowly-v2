@@ -1,79 +1,55 @@
 # Database Schema — Nowly v2
 
-This document contains the complete database schema and guidelines for Supabase/PostgreSQL.
+This document describes the database schema and the rules for changing it. The database is Postgres on Neon. Auth is Neon Auth (Managed Better Auth), and the app reads and writes data through the Neon Data API, where RLS policies keyed on `auth.uid()` decide which rows each user can reach.
+
+## Migrations
+
+The schema lives in [`neon/migrations/`](../neon/migrations/README.md), applied in filename order. That README explains how to apply them and how the set differs from the old Supabase files. The files in `supabase/migrations/` are historical: they describe the old Supabase project and are never applied again.
+
+**Production changes only through migrations committed to this repo. Never edit production by hand** (no SQL editor fixes, no console tweaks to functions, policies or grants). That is how the Supabase production database drifted from the repo: migration `0014` was never applied, and `update_updated_at` was hand-edited in a way no migration recorded. To change the schema, add a new migration file, apply it to a disposable Neon branch first, then apply the same file to production.
+
+Grants are explicit too. The Data API was enabled without default grants, so `authenticated` gets only what `20240101000015_neon_grants_and_ensure_account.sql` grants (usage on `public`, and select/insert/update/delete on the app tables), and `anonymous` gets nothing. A new table needs its own grant in its migration, or the Data API can't see it.
 
 ## Core Tables
 
+The five user foreign keys (`profiles.id`, `workspaces.user_id`, `recurring_tasks.user_id`, `tasks.user_id`, `user_onboarding.user_id`) reference `neon_auth."user"(id)`, the table Neon Auth manages, with `ON DELETE CASCADE`. Categories reach the user through `workspace_id`.
+
 ### profiles
 
-User profile data synced from Supabase Auth.
+User profile data, created by `ensure_account()` from the Neon Auth user.
 
 ```sql
 CREATE TABLE public.profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
   email TEXT,
   full_name TEXT,
   avatar_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
--- Trigger to auto-create profile, default workspace, and categories on signup
--- NOTE: SET search_path = public prevents search_path hijacking attacks
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  new_workspace_id UUID;
-BEGIN
-  -- Create profile
-  INSERT INTO public.profiles (id, email, full_name, avatar_url)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    NEW.raw_user_meta_data->>'full_name',
-    NEW.raw_user_meta_data->>'avatar_url'
-  );
-
-  -- Create default workspace
-  INSERT INTO public.workspaces (user_id, name, color, icon, position)
-  VALUES (
-    NEW.id,
-    'Default',
-    '#6366f1',
-    '📋',
-    0
-  )
-  RETURNING id INTO new_workspace_id;
-
-  -- Create default categories in the workspace
-  INSERT INTO public.categories (workspace_id, name, color, icon, position)
-  VALUES
-    (new_workspace_id, 'Personal', '#10b981', '👤', 0),
-    (new_workspace_id, 'Work', '#3b82f6', '💼', 1),
-    (new_workspace_id, 'Home', '#f59e0b', '🏠', 2);
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 ```
+
+### Account setup: `ensure_account()`
+
+There is no signup trigger. Neon Auth owns `neon_auth."user"`, so the app sets up a new account itself: the protected layout (`src/app/(protected)/layout.tsx`) calls the `ensure_account()` RPC on every visit. It is defined in `neon/migrations/20240101000015_neon_grants_and_ensure_account.sql`.
+
+- `SECURITY DEFINER` with `search_path = public`, no arguments. The caller is always `auth.uid()`; it raises an error if that is null, or if the caller has no `neon_auth."user"` row. Only `authenticated` can execute it.
+- It reads the caller's `name`, `email` and `image` from `neon_auth."user"`.
+- If a profile already exists it does nothing and returns `FALSE`. Otherwise, in one transaction, it creates the profile, a "Default" workspace (`#6366f1`, 📋, position 0), the Personal, Work and Home categories, a `user_onboarding` row and two sample tasks for today, and returns `TRUE`.
+- The profile insert uses `ON CONFLICT DO NOTHING`, so repeated or simultaneous calls create nothing extra.
+
+The old Supabase `handle_new_user()` function and its `on_auth_user_created` trigger on `auth.users` no longer exist.
 
 ### workspaces
 
 User's workspace containers (e.g., "Personal", "Work").
 
-**Important:** Users must always have at least one workspace. This constraint should be enforced at the application level (UI/API), not the database level, to allow proper CASCADE deletion when removing users from auth.users.
+**Important:** Users must always have at least one workspace. This constraint should be enforced at the application level (UI/API), not the database level, to allow proper CASCADE deletion when a user is deleted from Neon Auth.
 
 ```sql
 CREATE TABLE public.workspaces (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   color TEXT DEFAULT '#6366f1',
   icon TEXT,
@@ -110,7 +86,7 @@ Main task table with self-reference for subtasks.
 ```sql
 CREATE TABLE public.tasks (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
   workspace_id UUID NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
   category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
   parent_task_id UUID REFERENCES public.tasks(id) ON DELETE CASCADE,
@@ -157,7 +133,7 @@ Master templates for recurring task generation.
 ```sql
 CREATE TABLE public.recurring_tasks (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
   workspace_id UUID NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
   category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
 
@@ -364,7 +340,7 @@ CREATE TRIGGER on_task_completed
 ```
 
 > **Note:** The full implementation is in
-> `supabase/migrations/20240101000013_recurring_catchup.sql`, plus an
+> `neon/migrations/20240101000013_recurring_catchup.sql`, plus an
 > `ELSIF` branch added in `20240101000014_recurring_undo_retraction.sql` for
 > the `TRUE -> FALSE` transition (see below). The per-type date math lives in
 > the helper `public.calculate_next_recurrence(template, from_date)`; the
@@ -402,7 +378,7 @@ If a row matching that — uncompleted, not `is_detached`, on the current
 cursor — can't be found, the undo does nothing: it never deletes or alters
 an instance it can't prove is the untouched auto-generated one (in
 particular, an `is_detached` instance is never touched). See
-`supabase/migrations/20240101000014_recurring_undo_retraction.sql`.
+`neon/migrations/20240101000014_recurring_undo_retraction.sql`.
 
 ## Application-Level Constraints
 
@@ -430,7 +406,7 @@ if (count <= 1) {
 ```
 
 **Why not a database trigger?**
-Database triggers that prevent deletion of the last workspace will block CASCADE deletion when removing users from `auth.users`, making it impossible to delete users from the Supabase dashboard.
+Database triggers that prevent deletion of the last workspace would block the CASCADE deletion that runs when a user is deleted from `neon_auth."user"`, making it impossible to delete users from Neon Auth.
 
 ## Onboarding Tables
 
@@ -441,7 +417,7 @@ Tracks onboarding state and dismissed tooltips per user.
 ```sql
 CREATE TABLE public.user_onboarding (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
 
   -- Tour completion
   tour_completed BOOLEAN DEFAULT FALSE,
@@ -480,22 +456,21 @@ CREATE POLICY "Users can manage own onboarding"
 | `task_completion_undo`      | Undo tip shown on first task completion |
 | `task_dialog_scheduled_due` | Scheduled vs due date explanation       |
 
-**Note:** The `handle_new_user` trigger does NOT create a user_onboarding record. Records are created lazily on first tour interaction to avoid extra database overhead for users who skip onboarding.
+**Note:** `ensure_account()` creates the `user_onboarding` row when it sets up a new account. Accounts imported from Supabase may not have one, so the app still creates the row on first tour interaction when it is missing.
 
 ---
 
 ## Type Generation
 
-Generate TypeScript types from database:
+Generate TypeScript types from the database (needs a direct Neon connection string, local only):
 
 ```bash
-npx supabase gen types typescript --project-id YOUR_PROJECT_ID > src/types/database.ts
+NEON_DATABASE_URL=... npm run db:types
 ```
 
-Then create a helper type file:
+This writes `src/types/database.ts`. Don't hand-edit it. Helper row types such as `Task` and `Workspace` live in `src/types/supabase.ts`:
 
 ```typescript
-// src/types/supabase.ts
 import type { Database } from './database';
 
 export type Tables<T extends keyof Database['public']['Tables']> =

@@ -84,7 +84,7 @@ State persists in the `user_onboarding` table:
 ```sql
 CREATE TABLE public.user_onboarding (
   id UUID PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id),
+  user_id UUID NOT NULL REFERENCES neon_auth."user"(id),
   tour_completed BOOLEAN DEFAULT FALSE,
   tour_completed_at TIMESTAMPTZ,
   dismissed_tooltips TEXT[] DEFAULT '{}',

@@ -197,21 +197,11 @@ Build custom auth forms using Server Actions.
 - **Deprecated**: auth-ui-react deprecated February 2024
 - **App Router compatibility**: Server Actions work correctly with Next.js 15
 - **Full control**: Custom styling, error handling, loading states
-- **Security**: Server-side validation before Supabase calls
+- **Security**: Server-side validation before auth and data calls
 
 ### Critical Security Rule
 
-```typescript
-// ✅ CORRECT: Validates JWT with Supabase server
-const {
-  data: { user },
-} = await supabase.auth.getUser();
-
-// ❌ WRONG: Reads from cookies (can be spoofed)
-const {
-  data: { session },
-} = await supabase.auth.getSession();
-```
+Auth moved from Supabase to Neon Auth (Managed Better Auth). Server code checks the session with `getCurrentUser()`, which wraps `auth.getSession()`. See AGENTS.md Rule 3 for the rule and the `sessionDataTtl` revocation window.
 
 ---
 
@@ -323,7 +313,7 @@ Tour Components:
 
 State Management:
 ├── useOnboarding.ts        # Hook for tour state, tooltip dismissal
-└── user_onboarding table   # Persists completion/dismissals in Supabase
+└── user_onboarding table   # Persists completion/dismissals in Postgres
 ```
 
 ### Critical Coupling Warning
