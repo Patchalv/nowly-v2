@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { Pencil, Trash2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +25,7 @@ import { useDeleteWorkspace } from '@/hooks/useDeleteWorkspace';
 import { useDeleteCategory } from '@/hooks/useDeleteCategory';
 import { WorkspaceDialog } from '@/components/features/workspaces/WorkspaceDialog';
 import { CategoryDialog } from '@/components/features/categories/CategoryDialog';
-import { useCurrentUser, CURRENT_USER_QUERY_KEY } from '@/hooks/useCurrentUser';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { signOut } from '@/app/(auth)/actions';
 import { toast } from 'sonner';
 import type { Workspace, Category } from '@/types/supabase';
@@ -72,7 +71,6 @@ export default function AccountPage() {
     name: string;
   } | null>(null);
 
-  const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
   const userId = currentUser?.id ?? null;
   const { data: profile, isLoading: profileLoading } = useProfile();
@@ -113,9 +111,15 @@ export default function AccountPage() {
 
   const handleLogout = async () => {
     try {
-      // Drop the cached user so a different account signing in on this tab never sees it
-      queryClient.removeQueries({ queryKey: CURRENT_USER_QUERY_KEY });
-      await signOut();
+      const result = await signOut();
+      if (result?.error) {
+        toast.error('Failed to log out', { description: result.error });
+        return;
+      }
+      // A full page load, not a client navigation: it drops the React Query
+      // cache and the auth client's session cache, so the next account to
+      // sign in on this tab never sees the previous user or their data.
+      window.location.assign('/login');
     } catch (error) {
       toast.error('Failed to log out', {
         description:

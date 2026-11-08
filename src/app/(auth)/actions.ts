@@ -1,21 +1,24 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
-import { getCurrentUser } from '@/lib/auth/get-current-user';
+import { getAuth } from '@/lib/auth/server';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import * as Sentry from '@sentry/nextjs';
 
+// Neon Auth rejects passwords shorter than 8 characters (PASSWORD_TOO_SHORT).
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_TOO_SHORT_MESSAGE = `Password must be at least ${PASSWORD_MIN_LENGTH} characters`;
+
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
 });
 
 const signupSchema = z
   .object({
     fullName: z.string().min(1, 'Full name is required').max(100),
     email: z.string().email('Invalid email address'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+    password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -28,9 +31,14 @@ type ActionResponse =
   | { success: string }
   | undefined;
 
-export async function login(formData: FormData): Promise<ActionResponse> {
-  const supabase = await createClient();
+function isSentryEnabled() {
+  return (
+    process.env.NODE_ENV === 'production' &&
+    !!process.env.NEXT_PUBLIC_SENTRY_DSN
+  );
+}
 
+export async function login(formData: FormData): Promise<ActionResponse> {
   // Parse and validate input
   const rawData = {
     email: formData.get('email'),
@@ -46,26 +54,15 @@ export async function login(formData: FormData): Promise<ActionResponse> {
   const { email, password } = validated.data;
 
   // Attempt login
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  const { data, error } = await getAuth().signIn.email({ email, password });
 
   if (error) {
-    return { error: { general: error.message } };
+    return { error: { general: error.message ?? 'Failed to log in' } };
   }
 
-  // Set Sentry user context after successful login (production only)
-  const isProduction = process.env.NODE_ENV === 'production';
-  const hasSentryDsn = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
-
-  if (isProduction && hasSentryDsn) {
-    const { user } = await getCurrentUser(supabase);
-
-    if (user) {
-      // Only send user ID to Sentry (GDPR compliance - no PII)
-      Sentry.setUser({ id: user.id });
-    }
+  // Only send user ID to Sentry (GDPR compliance - no PII)
+  if (isSentryEnabled() && data?.user) {
+    Sentry.setUser({ id: data.user.id });
   }
 
   // Successful login - redirect to /today
@@ -73,8 +70,6 @@ export async function login(formData: FormData): Promise<ActionResponse> {
 }
 
 export async function signup(formData: FormData): Promise<ActionResponse> {
-  const supabase = await createClient();
-
   // Parse and validate input
   const rawData = {
     fullName: formData.get('fullName'),
@@ -92,66 +87,39 @@ export async function signup(formData: FormData): Promise<ActionResponse> {
   const { fullName, email, password } = validated.data;
 
   // Attempt signup
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await getAuth().signUp.email({
     email,
     password,
-    options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-      data: {
-        full_name: fullName,
-      },
-    },
+    name: fullName,
   });
 
   if (error) {
-    return { error: { general: error.message } };
+    return { error: { general: error.message ?? 'Failed to sign up' } };
   }
 
-  // Successful signup - return success message
-  return { success: 'Check your email to confirm your account' };
-}
-
-export async function signInWithGoogle(): Promise<
-  { error: string } | undefined
-> {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-    },
-  });
-
-  if (error) {
-    return { error: error.message };
+  // Only send user ID to Sentry (GDPR compliance - no PII)
+  if (isSentryEnabled() && data?.user) {
+    Sentry.setUser({ id: data.user.id });
   }
 
-  // Redirect to Google OAuth
-  if (data.url) {
-    redirect(data.url);
-  }
-
-  return { error: 'Failed to initiate Google sign in' };
+  // Email verification is off, so the new user is signed in. The protected
+  // layout sets up the account on the first page load.
+  redirect('/today');
 }
 
 export async function signOut(): Promise<{ error: string } | undefined> {
-  const supabase = await createClient();
-
-  const { error } = await supabase.auth.signOut();
+  const { error } = await getAuth().signOut();
 
   if (error) {
-    return { error: error.message };
+    return { error: error.message ?? 'Failed to sign out' };
   }
 
   // Clear Sentry user context on logout (production only)
-  const isProduction = process.env.NODE_ENV === 'production';
-  const hasSentryDsn = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
-
-  if (isProduction && hasSentryDsn) {
+  if (isSentryEnabled()) {
     Sentry.setUser(null);
   }
 
-  // Successful logout - redirect to /login
-  redirect('/login');
+  // The caller does a full page load to /login, which also clears the
+  // browser's caches. A redirect here would be a client-side navigation.
+  return undefined;
 }

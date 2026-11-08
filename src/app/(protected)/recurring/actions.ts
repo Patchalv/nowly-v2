@@ -18,7 +18,7 @@ export async function createRecurringTaskWithInstance(
   const supabase = await createClient();
 
   // Validate auth
-  const { user } = await getCurrentUser(supabase);
+  const { user } = await getCurrentUser();
   if (!user) {
     return { error: 'Unauthorized' };
   }
@@ -99,7 +99,7 @@ export async function updateRecurringTaskAndInstances(
   const supabase = await createClient();
 
   // Validate auth
-  const { user } = await getCurrentUser(supabase);
+  const { user } = await getCurrentUser();
   if (!user) {
     return { error: 'Unauthorized' };
   }
@@ -180,7 +180,7 @@ export async function deleteRecurringTaskAndInstances(id: string) {
   const supabase = await createClient();
 
   // Validate auth
-  const { user } = await getCurrentUser(supabase);
+  const { user } = await getCurrentUser();
   if (!user) {
     return { error: 'Unauthorized' };
   }
