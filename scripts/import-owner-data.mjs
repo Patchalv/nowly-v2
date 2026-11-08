@@ -223,8 +223,17 @@ function compareColumns(source, target) {
   }
 }
 
+// Keeps each JSON number as its source text, so JSON.stringify writes it back
+// unchanged. A JS Number would round numeric and bigint values past about 15
+// significant digits, and the verification compares against these same rows,
+// so it could not catch the loss.
+function keepNumberText(key, value, context) {
+  return typeof value === 'number' ? JSON.rawJSON(context.source) : value;
+}
+
 // Every row owned by userId, per table, as parsed JSON. Postgres builds the
-// JSON so dates, timestamps and arrays never pass through JS types.
+// JSON and numbers keep their text, so no value passes through a JS type
+// other than a string.
 async function readOwnedRows(client, userId) {
   const rows = {};
   for (const table of TABLES) {
@@ -233,7 +242,7 @@ async function readOwnedRows(client, userId) {
          FROM public.${table} t WHERE ${OWNED_BY[table]}`,
       [userId]
     );
-    rows[table] = JSON.parse(result[0].rows);
+    rows[table] = JSON.parse(result[0].rows, keepNumberText);
   }
   return rows;
 }
@@ -451,6 +460,10 @@ function printTable(columns) {
 }
 
 async function main() {
+  if (typeof JSON.rawJSON !== 'function') {
+    console.error('Needs Node 21 or later (JSON.rawJSON)');
+    return 2;
+  }
   let config;
   try {
     config = readConfig(process.argv.slice(2));
