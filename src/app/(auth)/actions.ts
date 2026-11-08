@@ -7,18 +7,18 @@ import * as Sentry from '@sentry/nextjs';
 
 // Neon Auth rejects passwords shorter than 8 characters (PASSWORD_TOO_SHORT).
 const PASSWORD_MIN_LENGTH = 8;
-const passwordTooShort = `Password must be at least ${PASSWORD_MIN_LENGTH} characters`;
+const PASSWORD_TOO_SHORT_MESSAGE = `Password must be at least ${PASSWORD_MIN_LENGTH} characters`;
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(PASSWORD_MIN_LENGTH, passwordTooShort),
+  password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
 });
 
 const signupSchema = z
   .object({
     fullName: z.string().min(1, 'Full name is required').max(100),
     email: z.string().email('Invalid email address'),
-    password: z.string().min(PASSWORD_MIN_LENGTH, passwordTooShort),
+    password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -119,6 +119,7 @@ export async function signOut(): Promise<{ error: string } | undefined> {
     Sentry.setUser(null);
   }
 
-  // Successful logout - redirect to /login
-  redirect('/login');
+  // The caller does a full page load to /login, which also clears the
+  // browser's caches. A redirect here would be a client-side navigation.
+  return undefined;
 }
