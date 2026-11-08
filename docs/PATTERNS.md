@@ -286,8 +286,8 @@ import { taskSchema } from '@/schemas/task';
 
 export async function createTask(formData: FormData) {
   // Validate auth: check the Neon Auth session on the server
-  const { user, error } = await getCurrentUser();
-  if (error || !user) {
+  const { user, error: authError } = await getCurrentUser();
+  if (authError || !user) {
     return { error: 'Unauthorized' };
   }
 
