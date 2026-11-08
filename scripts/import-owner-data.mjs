@@ -2,7 +2,7 @@
 // Neon Auth user ID (docs/NEON_MIGRATION_SPEC.md, "Data move and cutover").
 //
 //   SUPABASE_DB_URL=postgresql://...   direct (non-pooled) Supabase connection
-//   NEON_DB_URL=postgresql://...       direct (non-pooled) Neon connection
+//   NEON_DATABASE_URL=postgresql://...       direct (non-pooled) Neon connection
 //   OLD_USER_ID=<uuid>                 owner's Supabase auth.users id
 //   NEW_USER_ID=<uuid>                 owner's neon_auth."user" id
 //   node scripts/import-owner-data.mjs           # dry run (default)
@@ -26,11 +26,13 @@
 // generation. The delete order (tasks first) keeps ON DELETE SET NULL from
 // updating any task, which would fire those triggers.
 //
-// SSL: Neon connection strings carry sslmode=require and verify against the
-// system CAs. Supabase's certificate is signed by Supabase's own root CA:
-// download it from the project's Database settings and append
+// SSL: both URLs must set sslmode (only localhost may omit it). For Neon,
+// use sslmode=verify-full: pg already treats require as verify-full and
+// warns about it. Supabase's certificate is signed by Supabase's own root
+// CA: download it from the project's Database settings and append
 // `?sslmode=verify-full&sslrootcert=/path/to/prod-ca-2021.crt` to
-// SUPABASE_DB_URL.
+// SUPABASE_DB_URL. Supabase's direct host is IPv6-only without the IPv4
+// add-on; on an IPv4-only network use the session pooler (port 5432).
 //
 // Rehearsal (cutover step 6), on a throwaway branch of the Neon default branch:
 //   1. Create the branch with Neon Auth and the Data API on it.
@@ -106,14 +108,14 @@ function readConfig(argv) {
   };
   const config = {
     supabaseUrl: value('SUPABASE_DB_URL'),
-    neonUrl: value('NEON_DB_URL'),
+    neonUrl: value('NEON_DATABASE_URL'),
     oldUserId: value('OLD_USER_ID'),
     newUserId: value('NEW_USER_ID'),
     write: args.get('write') === true,
   };
   const known = new Set([
     'supabase-db-url',
-    'neon-db-url',
+    'neon-database-url',
     'old-user-id',
     'new-user-id',
     'write',
@@ -123,7 +125,7 @@ function readConfig(argv) {
   }
   const missing = [
     ['SUPABASE_DB_URL', config.supabaseUrl],
-    ['NEON_DB_URL', config.neonUrl],
+    ['NEON_DATABASE_URL', config.neonUrl],
     ['OLD_USER_ID', config.oldUserId],
     ['NEW_USER_ID', config.newUserId],
   ].filter(([, v]) => !v);
@@ -141,7 +143,28 @@ function readConfig(argv) {
   if (config.oldUserId === config.newUserId) {
     throw new ImportError('OLD_USER_ID and NEW_USER_ID are the same');
   }
+  for (const [name, url] of [
+    ['SUPABASE_DB_URL', config.supabaseUrl],
+    ['NEON_DATABASE_URL', config.neonUrl],
+  ]) {
+    requireSsl(name, url);
+  }
   return config;
+}
+
+// Without sslmode, pg connects in plaintext. Only a local database may do so.
+function requireSsl(name, url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new ImportError(`${name} is not a connection URL`);
+  }
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
+  const mode = parsed.searchParams.get('sslmode');
+  if (!local && (!mode || ['disable', 'allow', 'prefer'].includes(mode))) {
+    throw new ImportError(`${name} must set sslmode (verify-full)`);
+  }
 }
 
 // Column name -> type for the six tables. Aborts on generated or identity
@@ -221,9 +244,15 @@ async function exportFromSupabase(client, oldUserId) {
     await client.query('COMMIT');
     return rows;
   } catch (error) {
-    await client.query('ROLLBACK');
+    await rollback(client);
     throw error;
   }
+}
+
+// ROLLBACK that never replaces the error being handled. If the connection
+// is gone, Postgres has already discarded the transaction.
+async function rollback(client) {
+  await client.query('ROLLBACK').catch(() => {});
 }
 
 // The exported set must only reference rows inside itself; anything else
@@ -339,7 +368,7 @@ async function countDifferences(client, table, expected, userId) {
 }
 
 async function replaceInNeon(client, rows, newUserId) {
-  const report = { deleted: {}, inserted: {}, verified: {} };
+  const report = { deleted: {}, inserted: {}, nowOwned: {} };
   await client.query('BEGIN');
   try {
     // Categories go with their workspaces, so count them first.
@@ -370,7 +399,7 @@ async function replaceInNeon(client, rows, newUserId) {
     const after = await countOwned(client, newUserId);
     const problems = [];
     for (const table of TABLES) {
-      report.verified[table] = after[table];
+      report.nowOwned[table] = after[table];
       if (after[table] !== rows[table].length) {
         problems.push(
           `${table}: expected ${rows[table].length} rows, found ${after[table]}`
@@ -397,7 +426,7 @@ async function replaceInNeon(client, rows, newUserId) {
     await client.query('COMMIT');
     return report;
   } catch (error) {
-    await client.query('ROLLBACK');
+    await rollback(client);
     throw error;
   }
 }
@@ -470,7 +499,7 @@ async function main() {
       exported: exportedCounts,
       deleted: report.deleted,
       inserted: report.inserted,
-      'now owned': report.verified,
+      'now owned': report.nowOwned,
     });
     console.log(
       '\nCommitted. NEW_USER_ID owns exactly the exported rows (ids and values checked).'
@@ -482,6 +511,7 @@ async function main() {
     );
     return 1;
   } finally {
+    // Closing errors don't matter once the outcome is reported.
     await supabase.end().catch(() => {});
     await neon.end().catch(() => {});
   }
