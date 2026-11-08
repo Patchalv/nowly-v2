@@ -26,9 +26,9 @@
 // generation. The delete order (tasks first) keeps ON DELETE SET NULL from
 // updating any task, which would fire those triggers.
 //
-// SSL: both URLs must set sslmode (only localhost may omit it). For Neon,
-// use sslmode=verify-full: pg already treats require as verify-full and
-// warns about it. Supabase's certificate is signed by Supabase's own root
+// SSL: both URLs must set sslmode=verify-full (only localhost is exempt).
+// For Neon, replace the console's sslmode=require with it. Supabase's
+// certificate is signed by Supabase's own root
 // CA: download it from the project's Database settings and append
 // `?sslmode=verify-full&sslrootcert=/path/to/prod-ca-2021.crt` to
 // SUPABASE_DB_URL. Supabase's direct host is IPv6-only without the IPv4
@@ -152,7 +152,7 @@ function readConfig(argv) {
   return config;
 }
 
-// Without sslmode, pg connects in plaintext. Only a local database may do so.
+// Anything but a verified TLS connection is refused, except to a local database.
 function requireSsl(name, url) {
   let parsed;
   try {
@@ -162,8 +162,10 @@ function requireSsl(name, url) {
   }
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
   const mode = parsed.searchParams.get('sslmode');
-  if (!local && (!mode || ['disable', 'allow', 'prefer'].includes(mode))) {
-    throw new ImportError(`${name} must set sslmode (verify-full)`);
+  // Only verify-full: no-verify, and require under uselibpqcompat (the
+  // default from pg v9), connect without checking the certificate.
+  if (!local && mode !== 'verify-full') {
+    throw new ImportError(`${name} must set sslmode=verify-full`);
   }
 }
 
