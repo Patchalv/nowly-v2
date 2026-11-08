@@ -3,16 +3,10 @@ import { createNeonAuth, type NeonAuth } from '@neon/auth/next/server';
 import {
   createAuthServer,
   extractNeonAuthCookies,
-  resolveNeonAuthLogging,
   type RequestContext,
 } from '@neon/auth/server';
 
 let instance: NeonAuth | undefined;
-
-// TEMPORARY (issue #36 preview checks): log every non-2xx server call to Neon
-// Auth, to diagnose the first page load after Google sign-in. Remove before
-// merging.
-const LOG_LEVEL = 'info';
 
 function isServerComponentCookieError(error: unknown) {
   return (
@@ -28,9 +22,9 @@ function isServerComponentCookieError(error: unknown) {
  * When an upstream Neon Auth response carries Set-Cookie (a refreshed session,
  * or the token() response), the library writes it with cookies().set(), which
  * Next.js only allows in Server Actions and Route Handlers. In a Server
- * Component that throws: /login returned 500 with a stale session cookie, and
- * token() failed in the protected layout. Skipping the write there is safe:
- * the proxy refreshes session cookies on the next request.
+ * Component that throws, which made /login return 500 with a stale session
+ * cookie. Skipping the write there is safe: the proxy refreshes session
+ * cookies on the next request.
  */
 async function createRequestContext(): Promise<RequestContext> {
   const cookieStore = await cookies();
@@ -46,8 +40,6 @@ async function createRequestContext(): Promise<RequestContext> {
         if (!isServerComponentCookieError(error)) {
           throw error;
         }
-        // TEMPORARY (issue #36 preview checks): remove with LOG_LEVEL.
-        console.warn('[auth] Skipped cookie write in a Server Component', name);
       }
     },
     getHeader(name) {
@@ -91,7 +83,6 @@ export function getAuth(): NeonAuth {
     const { handler, middleware } = createNeonAuth({
       baseUrl,
       cookies: cookieConfig,
-      logLevel: LOG_LEVEL,
     });
     const server = createAuthServer({
       baseUrl,
@@ -99,7 +90,6 @@ export function getAuth(): NeonAuth {
       cookieSecret: cookieConfig.secret,
       sessionDataTtl: cookieConfig.sessionDataTtl,
       sameSite: cookieConfig.sameSite,
-      log: resolveNeonAuthLogging({ logLevel: LOG_LEVEL }),
     });
     instance = Object.assign(server, { handler, middleware });
   }
