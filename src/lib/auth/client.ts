@@ -1,6 +1,7 @@
 'use client';
 
 import { createAuthClient } from '@neon/auth/next';
+import { tokenFromResult } from '@/lib/auth/token-error';
 
 let authClient: ReturnType<typeof createAuthClient> | undefined;
 
@@ -16,7 +17,8 @@ export function getAuthClient() {
 let inFlightToken: Promise<string | null> | undefined;
 
 /**
- * Returns a JWT for the signed-in user, for calls to the Neon Data API.
+ * Returns a JWT for the signed-in user, for calls to the Neon Data API, or
+ * `null` when signed out. Any other failure throws an `AuthTokenError`.
  *
  * The auth client routes any URL containing `/token` through its get-session
  * cache, so once a session is cached a plain `token()` call resolves to the
@@ -28,7 +30,7 @@ let inFlightToken: Promise<string | null> | undefined;
 export function getBrowserAccessToken(): Promise<string | null> {
   inFlightToken ??= getAuthClient()
     .token({ fetchOptions: { headers: { 'X-Force-Fetch': 'true' } } })
-    .then((result) => result.data?.token ?? null)
+    .then(tokenFromResult)
     .finally(() => {
       inFlightToken = undefined;
     });

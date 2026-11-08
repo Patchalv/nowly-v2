@@ -5,6 +5,7 @@ import {
   extractNeonAuthCookies,
   type RequestContext,
 } from '@neon/auth/server';
+import { tokenFromResult } from '@/lib/auth/token-error';
 
 let instance: NeonAuth | undefined;
 
@@ -96,21 +97,18 @@ export function getAuth(): NeonAuth {
   return instance;
 }
 
-type TokenResult = {
-  data: { token: string } | null;
-  error: unknown;
+type WithToken = {
+  token: () => Promise<Parameters<typeof tokenFromResult>[0]>;
 };
 
-type WithToken = { token: () => Promise<TokenResult> };
-
 /**
- * Returns a JWT for the current session, for calls to the Neon Data API.
+ * Returns a JWT for the current session, for calls to the Neon Data API, or
+ * `null` when signed out. Any other failure throws an `AuthTokenError`.
  *
  * `token()` works at runtime but is typed `unknown` in @neon/auth 0.8.2. This
  * is the only place that casts it.
  */
 export async function getServerAccessToken(): Promise<string | null> {
   const auth = getAuth() as unknown as WithToken;
-  const result = await auth.token();
-  return result.data?.token ?? null;
+  return tokenFromResult(await auth.token());
 }
