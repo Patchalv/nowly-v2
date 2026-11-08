@@ -11,7 +11,7 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "prepare": "husky",
-    "db:types": "npx supabase gen types typescript --project-id xranzhizzedugrakggkf > src/types/database.ts"
+    "db:types": "npx @neondatabase/neon-js gen-types --db-url \"$NEON_DATABASE_URL\" --output src/types/database.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",

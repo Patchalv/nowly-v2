@@ -1,5 +1,7 @@
 # Supabase Migrations
 
+> **Historical.** Nowly is moving to Neon (see `docs/NEON_MIGRATION_SPEC.md`). The migration set for Neon lives in [`neon/migrations/`](../../neon/migrations/README.md). These files are kept unedited as the record of the Supabase schema; do not add new migrations here.
+
 This directory contains the database schema migrations for Nowly v2.
 
 ## Baseline Schema
