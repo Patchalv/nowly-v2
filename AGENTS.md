@@ -36,20 +36,26 @@ export type Task = z.infer<typeof taskSchema>;
 interface Task { ... }
 ```
 
-### 3. Auth — Always Use getUser(), Never getSession()
+### 3. Auth — Always Check the Session on the Server
+
+Auth is Neon Auth (Managed Better Auth). On the server, always check `auth.getSession()` through `getCurrentUser()`, the one place that reads it:
 
 ```typescript
-// ✅ CORRECT: Validates JWT with Supabase Auth server
-const {
-  data: { user },
-} = await supabase.auth.getUser();
-if (!user) redirect('/login');
+// ✅ CORRECT: Server-side session check (src/lib/auth/get-current-user.ts)
+import { getCurrentUser } from '@/lib/auth/get-current-user';
 
-// ❌ WRONG: Reads from cookies (can be spoofed)
-const {
-  data: { session },
-} = await supabase.auth.getSession();
+const { user, error } = await getCurrentUser();
+if (error || !user) redirect('/login');
+
+// ❌ WRONG: Trusting a user ID sent by the client, or skipping the check
+// because the proxy already ran (the proxy is only an optimistic redirect)
 ```
+
+In client components, use the `useCurrentUser()` hook instead.
+
+**Revocation window:** `getSession()` is served from a signed HTTP-only cookie that caches the session for `sessionDataTtl` seconds (set explicitly to 300 in `src/lib/auth/server.ts`). A revoked or signed-out-elsewhere session can stay usable for up to that long. Lowering it shortens the window but sends more requests to Neon Auth. Don't change it without saying so in the PR.
+
+Data access goes through the Neon Data API with the session's JWT, and Postgres RLS (`auth.uid()`) decides which rows a user can touch. The session check guards pages; RLS guards data.
 
 ### 4. Dates — Scheduled vs Due Date
 
@@ -100,16 +106,15 @@ See [`src/lib/onboarding/README.md`](src/lib/onboarding/README.md) for detailed 
 
 **Defense-in-depth architecture:** Route protection uses two layers:
 
-1. **`src/proxy.ts`** — Next.js 16 proxy (middleware) for optimistic redirects
-2. **`src/app/(protected)/layout.tsx`** — Server-side auth check as primary security layer
+1. **`src/proxy.ts`** — Next.js 16 proxy running Neon Auth's `auth.middleware()` for optimistic redirects
+2. **`src/app/(protected)/layout.tsx`** — Server-side session check as primary security layer
 
-Public, auth-only and protected route prefixes are listed in `src/proxy.ts`.
+The proxy protects every route by default. The only exceptions are the `publicRoutes` list passed to `auth.middleware()` in `src/proxy.ts`, plus Neon Auth's own default skip routes (`/api/auth` and its `/auth/*` pages) and the `loginUrl`. Each entry matches that path and its slash-delimited subpaths (`'/'` matches only the home page). Signed-out requests to any other route redirect to `/login`. Signed-in users on `/login` or `/signup` are redirected by those pages, not the proxy.
 
 **When adding new routes:**
 
-- **New protected route**: Add prefix to `protectedPrefixes` array in `proxy.ts`
-- **New public route**: Add to `publicRoutes` array in `proxy.ts`
-- **Protected routes** must be under `src/app/(protected)/` to inherit the layout auth check
+- **New protected route**: Nothing to add in `proxy.ts`. Put it under `src/app/(protected)/` so it inherits the layout's session check
+- **New public route**: Add it to the `publicRoutes` array in `proxy.ts`
 
 **GDPR compliance:**
 
@@ -184,7 +189,7 @@ This prevents users from using `%` or `_` as wildcards in their search.
 - Editing `src/components/ui/` (shadcn primitives — regenerate, don't hand-edit)
 - Class components (use functional components with hooks)
 - `useEffect` for data fetching (use TanStack Query)
-- Direct Supabase calls in components (use hooks)
+- Direct data-client calls in components (use hooks)
 - `any` type (enable strict TypeScript)
 - Default parameter values (make all parameters explicit)
 - Real-time subscriptions for single-user app (unnecessary overhead)

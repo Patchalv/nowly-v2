@@ -280,19 +280,19 @@ export function TaskForm({ defaultValues, onSubmit, isLoading }: TaskFormProps) 
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth/get-current-user';
 import { revalidatePath } from 'next/cache';
 import { taskSchema } from '@/schemas/task';
 
 export async function createTask(formData: FormData) {
-  const supabase = await createClient();
-
-  // Validate auth
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  // Validate auth: check the Neon Auth session on the server
+  const { user, error } = await getCurrentUser();
+  if (error || !user) {
     return { error: 'Unauthorized' };
   }
+
+  // Neon Data API client; sends the session's JWT, so RLS applies
+  const db = await createClient();
 
   // Parse and validate input
   const rawData = {
@@ -316,7 +316,7 @@ export async function createTask(formData: FormData) {
   }
 
   // Insert
-  const { error } = await supabase.from('tasks').insert({
+  const { error } = await db.from('tasks').insert({
     ...validated.data,
     user_id: user.id,
   });

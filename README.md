@@ -5,7 +5,7 @@ Nowly is a task management app built around one idea: **manage when you do, not 
 ## Tech Stack
 
 - **[Next.js](https://nextjs.org)** (App Router) with TypeScript — the app itself, under `src/app`.
-- **[Supabase](https://supabase.com)** — Postgres database, auth, and row-level security. Generated types live in `src/types/database.ts` (run `npm run db:types` to regenerate; don't hand-edit).
+- **[Neon](https://neon.com)** — Postgres database with row-level security, Neon Auth for sign-in, and the Neon Data API for data access. The schema lives in [`neon/migrations/`](neon/migrations/README.md). Generated types live in `src/types/database.ts` (run `npm run db:types` to regenerate; don't hand-edit).
 - **[Sentry](https://sentry.io)** — error tracking and monitoring in production. See [Error Monitoring](#error-monitoring) below.
 
 ## Getting Started
@@ -17,7 +17,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to see the app. The `npm run dev` server auto-updates as you edit files under `src/`.
 
-You'll need Supabase environment variables (project URL and anon key) in `.env.local` for auth and data to work locally.
+You'll need the Neon Auth URL, a cookie secret and the Neon Data API URL in `.env.local` for auth and data to work locally. Copy `.env.local.example` and fill them in.
 
 ## Error Monitoring
 
@@ -43,9 +43,9 @@ SENTRY_AUTH_TOKEN=your_sentry_auth_token
 ### Features
 
 - Automatic error capture in production
-- User context tracking (user ID and email only)
+- User context tracking (user ID only, no email or other PII)
 - Session replay with privacy-first settings (all text masked, media blocked)
-- Supabase error handlers with automatic PII scrubbing
+- Database error handlers with automatic PII scrubbing
 - Configurable sample rates (10% traces, 5% session replays in production)
 
 For more details on error handling utilities, see [`src/lib/errors/README.md`](src/lib/errors/README.md).
